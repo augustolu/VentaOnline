@@ -23,6 +23,8 @@ export default function AddProductModal({ isOpen, onClose }) {
         description: "",
     });
 
+    const [features, setFeatures] = useState([]);
+
     const [loading, setLoading] = useState(false);
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
     const [error, setError] = useState("");
@@ -130,6 +132,9 @@ export default function AddProductModal({ isOpen, onClose }) {
 
             if (res.data.success) {
                 setFormData(prev => ({ ...prev, description: res.data.description }));
+                if (res.data.features && res.data.features.length > 0) {
+                    setFeatures(res.data.features);
+                }
             }
         } catch (err) {
             setError(err.response?.data?.error || "Error al conectar con la IA.");
@@ -174,7 +179,8 @@ export default function AddProductModal({ isOpen, onClose }) {
                 ...formData,
                 price: Number(formData.price),
                 wholesale_price: formData.wholesale_price ? Number(formData.wholesale_price) : undefined,
-                image_url: uploadedImageUrl
+                image_url: uploadedImageUrl,
+                features
             };
 
             await axios.post("http://localhost:3001/api/products", payload, {
@@ -190,6 +196,7 @@ export default function AddProductModal({ isOpen, onClose }) {
                     category: "", brand: "", model: "", compatibility: "", price: "",
                     stock_online: 0, stock_physical: 0, store_location: "", wholesale_price: "", wholesale_min_quantity: 5, description: ""
                 });
+                setFeatures([]);
                 setImgSrc('');
                 setCompletedCrop(null);
             }, 1500);
@@ -334,7 +341,7 @@ export default function AddProductModal({ isOpen, onClose }) {
                                             {isGeneratingAI ? (
                                                 <><span className="material-icons text-[14px] animate-spin">autorenew</span> Generando...</>
                                             ) : (
-                                                <><span className="material-icons text-[14px]">auto_awesome</span> ✨ Generar con IA</>
+                                                <><span className="material-icons text-[14px]">auto_awesome</span> Generar con IA</>
                                             )}
                                         </button>
                                     </div>
@@ -346,6 +353,51 @@ export default function AddProductModal({ isOpen, onClose }) {
                                         onChange={handleChange}
                                         className="w-full text-sm border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md p-3 outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
                                     ></textarea>
+                                </div>
+
+                                <div className="md:col-span-2 border-t border-gray-100 dark:border-gray-700 pt-4 mt-2">
+                                    <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">Especificaciones Técnicas (Opcional)</h4>
+                                    <p className="text-xs text-gray-500 mb-3">Las especificaciones clave generadas por la IA o añadidas manualmente aparecerán aquí para integrarse a la ficha del producto.</p>
+
+                                    {features.map((feature, index) => (
+                                        <div key={index} className="flex gap-2 mb-2 items-center">
+                                            <input
+                                                value={feature.name}
+                                                onChange={(e) => {
+                                                    const newFeatures = [...features];
+                                                    newFeatures[index].name = e.target.value;
+                                                    setFeatures(newFeatures);
+                                                }}
+                                                placeholder="Ej: Memoria RAM"
+                                                className="w-1/3 text-sm border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md p-2 outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                            />
+                                            <input
+                                                value={feature.value}
+                                                onChange={(e) => {
+                                                    const newFeatures = [...features];
+                                                    newFeatures[index].value = e.target.value;
+                                                    setFeatures(newFeatures);
+                                                }}
+                                                placeholder="Ej: 8 GB"
+                                                className="flex-1 text-sm border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md p-2 outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setFeatures(features.filter((_, i) => i !== index))}
+                                                className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded-md transition-colors"
+                                                title="Eliminar especificación"
+                                            >
+                                                <span className="material-icons text-lg">delete</span>
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => setFeatures([...features, { name: "", value: "" }])}
+                                        className="text-xs text-primary hover:text-primary-hover font-bold flex items-center justify-center gap-1 mt-3 w-full border border-dashed border-gray-300 dark:border-gray-600 rounded-md p-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                    >
+                                        <span className="material-icons text-[16px]">add</span> Añadir Especificación
+                                    </button>
                                 </div>
                             </div>
                         </div>

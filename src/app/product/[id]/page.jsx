@@ -128,6 +128,24 @@ export default function ProductDetailPage() {
                                 )}
                             </div>
 
+                            {/* Product Specifications */}
+                            {product.features && product.features.length > 0 && (
+                                <div className="mb-8 animate-in fade-in slide-in-from-bottom-2">
+                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                        <span className="material-icons text-primary text-xl">memory</span>
+                                        Especificaciones Técnicas
+                                    </h2>
+                                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                                        {product.features.map((feature, idx) => (
+                                            <div key={idx} className={`flex flex-col sm:flex-row p-4 ${idx !== product.features.length - 1 ? 'border-b border-gray-100 dark:border-gray-700' : ''}`}>
+                                                <span className="text-xs font-bold text-gray-500 w-full sm:w-1/3 mb-1 sm:mb-0 uppercase tracking-widest">{feature.name}</span>
+                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200 flex-1">{feature.value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Stock and Actions */}
                             <div className="mt-auto pt-8 border-t border-gray-100 dark:border-gray-800">
                                 <div className="flex items-center gap-4 mb-6">

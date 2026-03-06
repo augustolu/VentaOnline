@@ -22,7 +22,8 @@ export async function createProduct({
     wholesale_price,
     wholesale_min_quantity = 5,
     image_url,
-    description
+    description,
+    features
 }) {
     // 1. Validaciones básicas
     if (!category || !brand || !model || !price) {
@@ -44,7 +45,8 @@ export async function createProduct({
                 compatibility,
                 price: price,
                 image_url,
-                description
+                description,
+                features
             }
         });
 

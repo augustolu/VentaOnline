@@ -12,28 +12,48 @@ export const generateDescription = async (req, res) => {
         }
 
         const prompt = `
-            Actúa como un experto vendedor de tecnología y repuestos de celulares (onda Mercadolibre, pero más profesional).
-            Escribe una descripción de venta atractiva, clara y concisa en ESPAÑOL resaltando los beneficios para el siguiente producto de la tienda "Tu Tienda":
+            Actúa como un experto vendedor de tecnología y repuestos de celulares.
+            Necesito que redactes información sobre el siguiente producto para un eCommerce:
             
             - Marca: ${brand}
             - Modelo: ${model}
             - Categoría: ${category}
             
-            Instrucciones especiales:
-            1. Máximo de 3 párrafos cortos.
-            2. Usa viñetas para destacar 3 o 4 características si lo ves conveniente.
-            3. No inventes especificaciones técnicas falsas. Da formato general útil (ej: "ideal para técnicos y reparaciones").
-            4. El tono debe ser profesional pero que invite a la compra.
+            DEBES DEVOLVER EXCLUSIVAMENTE UN ARCHIVO JSON VÁLIDO. NO USES MARKDOWN COMO \`\`\`json. NO ESCRIBAS NINGÚN SALUDO.
+            La estructura del JSON debe ser exactamente esta:
+            {
+                "description": "Un texto de marketing atractivo y directo, máximo 2 párrafos cortos. No incluyas saludos como 'Claro que sí' ni frases robóticas. Directo a las ventajas del producto.",
+                "features": [
+                    { "name": "Ejemplo: Memoria RAM", "value": "8 GB" },
+                    { "name": "Ejemplo: Procesador", "value": "A15 Bionic" }
+                ]
+            }
+            IMPORTANTE SOBRE FEATURES: Si el producto es tecnológico (celular, PC, etc.), intenta inferir 3 o 4 especificaciones técnicas reales (batería, chip, pantalla). Si el producto es algo simple (como una funda o cable), deja el array "features" VÍCIO ([]).
+            NUNCA inventes características falsas si no estás seguro.
         `;
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
+            config: {
+                responseMimeType: "application/json"
+            }
         });
 
-        const description = response.text;
+        const rawJson = response.text;
+        let aiData;
+        try {
+            aiData = JSON.parse(rawJson);
+        } catch (e) {
+            console.error("Failed to parse JSON from AI", rawJson);
+            return res.status(500).json({ success: false, error: 'Respuesta inválida de la IA.' });
+        }
 
-        return res.status(200).json({ success: true, description });
+        return res.status(200).json({
+            success: true,
+            description: aiData.description,
+            features: aiData.features || []
+        });
 
     } catch (error) {
         console.error("AI Generation Error:", error);
