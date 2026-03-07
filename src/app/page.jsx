@@ -70,8 +70,8 @@ export default function HomePage() {
                             <li>
                                 <a className="group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium" href="#">
                                     <div className="flex items-center gap-3">
-                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">smartphone</span>
-                                        <span>Módulos Pantalla</span>
+                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">headphones</span>
+                                        <span>Tecnología y Audio</span>
                                     </div>
                                     <span className="material-icons text-gray-300 text-sm">chevron_right</span>
                                 </a>
@@ -79,8 +79,8 @@ export default function HomePage() {
                             <li>
                                 <a className="group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium" href="#">
                                     <div className="flex items-center gap-3">
-                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">battery_charging_full</span>
-                                        <span>Baterías</span>
+                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">computer</span>
+                                        <span>Periféricos y Comp.</span>
                                     </div>
                                     <span className="material-icons text-gray-300 text-sm">chevron_right</span>
                                 </a>
@@ -88,8 +88,8 @@ export default function HomePage() {
                             <li>
                                 <a className="group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium" href="#">
                                     <div className="flex items-center gap-3">
-                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">build</span>
-                                        <span>Herramientas</span>
+                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">blender</span>
+                                        <span>Pequeños Electrodomésticos</span>
                                     </div>
                                     <span className="material-icons text-gray-300 text-sm">chevron_right</span>
                                 </a>
@@ -98,7 +98,7 @@ export default function HomePage() {
                                 <a className="group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium" href="#">
                                     <div className="flex items-center gap-3">
                                         <span className="material-icons text-gray-400 group-hover:text-primary text-lg">cable</span>
-                                        <span>Flex &amp; Cables</span>
+                                        <span>Accesorios de Celular</span>
                                     </div>
                                     <span className="material-icons text-gray-300 text-sm">chevron_right</span>
                                 </a>
@@ -106,17 +106,8 @@ export default function HomePage() {
                             <li>
                                 <a className="group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium" href="#">
                                     <div className="flex items-center gap-3">
-                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">memory</span>
-                                        <span>Integrados</span>
-                                    </div>
-                                    <span className="material-icons text-gray-300 text-sm">chevron_right</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a className="group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium" href="#">
-                                    <div className="flex items-center gap-3">
-                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">cleaning_services</span>
-                                        <span>Insumos Taller</span>
+                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">store</span>
+                                        <span>Mayorista</span>
                                     </div>
                                     <span className="material-icons text-gray-300 text-sm">chevron_right</span>
                                 </a>
@@ -137,17 +128,20 @@ export default function HomePage() {
                 </aside>
                 <main className="flex-1 min-w-0">
                     <div className="relative bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl overflow-hidden shadow-md mb-8 h-64 md:h-80 lg:h-96 group">
-                        <img alt="Tech repair station" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA81OLlCIO0A2xVUsMQ0L98N52ARCXyfh1THWtbQry1RjwEtU9E84TxyaDhhL_n48LKUjoTJFeV7960QlLzUdpzHqeBRFzQsBgjecZVAI9rzQmLgDDy4sTLtQ28AlOqubfamu3Jcw6ude8Z1rCbvlXEf4LnzdASZSX20Pq22CwAR-9YeuNL_Ne-QbKZEaQlmVSGGQkmfUTyHQCFxBF-Nzxk3SSgtQfeXVhbF2alDi4GkAFiPdyC0PuKdR1ZvAQ40aWOQG9rMWT_Hfg" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent flex items-center">
+                        <img alt="Tech repair station" className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" src="/hero-repair.png" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent flex items-center">
                             <div className="px-8 md:px-12 max-w-xl">
                                 <span className="bg-primary text-white text-xs font-bold px-2 py-1 rounded mb-4 inline-block uppercase tracking-wider">Servicio Oficial</span>
-                                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-white mb-4 leading-tight">
-                                    REPARACIONES <span className="text-gray-300">RÁPIDAS</span> Y <br />REPUESTOS ORIGINALES
+                                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-white mb-4 leading-tight drop-shadow-md">
+                                    REPARACIONES <span className="text-primary">RÁPIDAS</span> Y <br />REPUESTOS ORIGINALES
                                 </h1>
-                                <p className="text-gray-300 mb-8 text-sm md:text-base">Encontrá todo lo que necesitás para reparar tu equipo o traelo a nuestros expertos.</p>
+                                <p className="text-gray-200 font-medium mb-8 text-sm md:text-base drop-shadow-sm">Encontrá todo lo que necesitás para reparar tu equipo o traelo a nuestros expertos.</p>
                                 <div className="flex gap-3">
-                                    <button className="bg-primary hover:bg-primary-hover text-white font-bold py-3 px-6 rounded-lg shadow-lg shadow-gray-500/30 transition-all transform hover:-translate-y-1">
-                                        Ver Repuestos
+                                    <button 
+                                        onClick={() => document.getElementById('productos')?.scrollIntoView({ behavior: 'smooth' })}
+                                        className="bg-primary hover:bg-primary-hover text-white font-bold py-3 px-6 rounded-lg shadow-lg shadow-primary/30 transition-all transform hover:-translate-y-1"
+                                    >
+                                        Ver Productos
                                     </button>
                                     <button className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-lg border border-white/30 transition-all">
                                         Contactar Técnico
@@ -188,7 +182,7 @@ export default function HomePage() {
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between mb-6">
+                    <div id="productos" className="flex items-center justify-between mb-6 scroll-mt-6">
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <span className="w-1.5 h-8 bg-primary rounded-full"></span>
                             Nuestros Productos
@@ -255,16 +249,28 @@ export default function HomePage() {
                         </div>
                     )}
 
-                    <div className="mt-8 bg-gray-100 dark:bg-gray-800 rounded-xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 border-l-4 border-primary">
-                        <div>
-                            <h3 className="text-2xl font-black text-gray-800 dark:text-white mb-2">¿Sos Técnico Mayorista?</h3>
-                            <p className="text-gray-600 dark:text-gray-300 mb-4">Registrate ahora y accedé a la lista de precios exclusiva para gremio con descuentos especiales.</p>
-                            <button className="bg-gray-800 dark:bg-gray-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-gray-700 transition-colors">Solicitar Cuenta Gremio</button>
+                    {(!user || user.role?.name !== 'Wholesaler') && (
+                        <div className="mt-8 bg-gradient-to-r from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/5 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative group">
+                            <div className="relative z-10 max-w-2xl">
+                                <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full mb-4 inline-block tracking-wider uppercase shadow-sm">
+                                    Nuevo Programa
+                                </span>
+                                <h3 className="text-3xl font-black text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                                    ¿Querés ser <span className="text-primary">Mayorista?</span>
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-300 mb-6 text-base md:text-lg">
+                                    Registrate ahora y accedé a una lista de precios exclusiva orientada a revendedores y comercios. Disfrutá de descuentos por volumen.
+                                </p>
+                                <Link href="/register?type=wholesaler" className="inline-block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-3 rounded-xl font-bold hover:scale-105 transition-transform shadow-lg hover:shadow-gray-900/40 flex items-center gap-2 w-max">
+                                    <span className="material-icons">storefront</span>
+                                    Solicitar Cuenta Mayorista
+                                </Link>
+                            </div>
+                            <div className="hidden md:block absolute right-[-20px] bottom-[-40px] opacity-10 dark:opacity-20 group-hover:scale-110 transition-transform duration-700">
+                                <span className="material-icons" style={{ fontSize: '240px' }}>storefront</span>
+                            </div>
                         </div>
-                        <div className="hidden md:block">
-                            <span className="material-icons text-[120px] text-gray-300 dark:text-gray-600 opacity-50">engineering</span>
-                        </div>
-                    </div>
+                    )}
                 </main>
             </div>
 
