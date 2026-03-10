@@ -203,12 +203,12 @@ export default function HomePage() {
                     <div
                         onMouseEnter={() => setIsHeroHovered(true)}
                         onMouseLeave={() => setIsHeroHovered(false)}
-                        className={`relative bg-gray-950 rounded-[2rem] overflow-hidden shadow-xl mb-8 group flex flex-col justify-center transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'min-h-[120px] md:min-h-[140px]' : 'min-h-[300px] md:min-h-[380px]'}`}
+                        className={`relative bg-gray-950 rounded-[2rem] overflow-hidden shadow-xl mb-8 group flex flex-col justify-center transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'min-h-[120px] md:min-h-[140px]' : 'min-h-[300px] md:min-h-[380px] py-10'}`}
                     >
                         <img alt="Tech repair station" className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-700 mix-blend-overlay" src="/hero-repair.png" />
                         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent"></div>
                         <div className={`relative z-10 px-8 md:px-12 max-w-2xl w-full transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'py-6 md:py-8' : 'py-10 md:py-14'}`}>
-                            <div className={`flex items-center gap-4 transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'mb-2' : 'mb-4'}`}>
+                            <div className={`flex items-center gap-4 transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'mb-2 opacity-0 h-0 overflow-hidden' : 'mb-4 opacity-100'}`}>
                                 <span className="bg-slate-700/50 border border-slate-600 text-slate-200 text-[10px] md:text-xs font-bold px-3 py-1.5 rounded inline-block uppercase tracking-wider backdrop-blur-sm">Servicio Oficial</span>
                             </div>
                             <h1 className={`font-black text-white leading-[1.1] tracking-tight transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'text-2xl md:text-3xl lg:text-4xl' : 'text-3xl md:text-4xl lg:text-5xl mb-4'}`}>
@@ -217,8 +217,8 @@ export default function HomePage() {
                                     <span className={`transition-all duration-500 ${isScrolled && !isHeroHovered ? 'text-xl md:text-2xl text-white/90' : 'block'}`}>REPUESTOS PARA TODOS</span>
                                 </span>
                             </h1>
-                            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'max-h-0 opacity-0' : 'max-h-[300px] opacity-100'}`}>
-                                <p className="text-gray-400 font-medium mb-8 text-sm md:text-base max-w-lg mt-4">Encontrá todo lo que necesitás para reparar tu equipo o traelo a nuestros expertos en servicio técnico móvil e informático.</p>
+                            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'max-h-0 opacity-0 mb-0' : 'max-h-[300px] opacity-100 mt-4'}`}>
+                                <p className="text-gray-400 font-medium mb-8 text-sm md:text-base max-w-lg">Encontrá todo lo que necesitás para reparar tu equipo o traelo a nuestros expertos en servicio técnico móvil e informático.</p>
                                 <div className="flex gap-3">
                                     <button
                                         onClick={() => document.getElementById('productos')?.scrollIntoView({ behavior: 'smooth' })}

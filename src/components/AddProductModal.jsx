@@ -207,12 +207,23 @@ export default function AddProductModal({ isOpen, onClose }) {
                 }
 
                 // Asegurar que category sea un array (en caso que Gemini devuelva un string por error)
-                const parsedCategory = Array.isArray(aiData.category) ? aiData.category : (aiData.category ? [aiData.category] : prev.category);
+                let rawCategory = Array.isArray(aiData.category) ? aiData.category : (aiData.category ? [aiData.category] : formData.category);
+
+                // Sanitizar strings para evitar fallos de tildes o espacios invisibles devueltos por la IA
+                const validCategories = [
+                    "Tecnología y Audio", "Periféricos y Computación", "Pequeños Electrodomésticos",
+                    "Accesorios de Celular", "Teléfonos", "Ofertas", "Mayorista"
+                ];
+
+                const parsedCategory = rawCategory.map(c => c.trim()).filter(c => validCategories.includes(c));
+
+                // Si la IA devolvió categorías pero ninguna matcheó exactamente, nos quedamos con las que ya tenía el form para no dejarlo vacío.
+                const finalCategory = parsedCategory.length > 0 ? parsedCategory : formData.category;
 
                 // Setear formulario inmediatamente (manteniendo el MODELO ORIGINAL del usuario)
                 setFormData(prev => ({
                     ...prev,
-                    category: parsedCategory,
+                    category: finalCategory,
                     brand: aiData.brand || prev.brand,
                     description: aiData.description || prev.description
                 }));
@@ -235,7 +246,8 @@ export default function AddProductModal({ isOpen, onClose }) {
                 }
             }
         } catch (err) {
-            setError(err.response?.data?.error || "Error al autocompletar con la IA.");
+            console.error("AI Autocomplete error in frontend:", err);
+            setError(err.response?.data?.error || err.message || "Error al autocompletar con la IA.");
         } finally {
             setIsGeneratingAI(false);
         }

@@ -178,7 +178,23 @@ export default function BulkProductUploadModal({ isOpen, onClose }) {
 
             } catch (err) {
                 console.error(`Error procesando fila ${i}:`, err);
-                updateItemStatus(item.id, 'error', `Falló: ${err.message || "Error desconocido"}`);
+
+                if (err.response && err.response.status === 429) {
+                    updateItemStatus(item.id, 'error', 'Límite de IA: Pausando 60s... ⏳');
+                    // Esperamos 60 segundos pausados de forma fragmentada para permitir la interrupción del Stop ⏹️
+                    for (let w = 0; w < 60; w++) {
+                        if (stopRequestedRef.current) break;
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                    if (!stopRequestedRef.current) {
+                        i--; // Retrocedemos el contador para volver a reintentar este mismo ítem
+                        continue;
+                    } else {
+                        break; // Si se presionó stop, se interrumpe el ciclo grande naturalemente
+                    }
+                }
+
+                updateItemStatus(item.id, 'error', `Falló: ${err.response?.data?.error || err.message || "Error desconocido"}`);
                 failCount++;
             }
 

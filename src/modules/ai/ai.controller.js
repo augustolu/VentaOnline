@@ -33,7 +33,7 @@ export const generateDescription = async (req, res) => {
         `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: prompt,
             config: {
                 responseMimeType: "application/json"
@@ -57,6 +57,13 @@ export const generateDescription = async (req, res) => {
 
     } catch (error) {
         console.error("AI Generation Error:", error);
+
+        // Detectar si fue un error de cuota (Rate Limit o Límite Diario)
+        const errorMessage = error.message || "";
+        if (errorMessage.includes("429") || errorMessage.includes("Quota") || error.status === 429) {
+            return res.status(429).json({ success: false, error: 'Has alcanzado el límite de peticiones gratuitas a la IA. Debes esperar un momento.' });
+        }
+
         return res.status(500).json({ success: false, error: 'Hubo un error al generar la descripción con Inteligencia Artificial.' });
     }
 };
@@ -98,7 +105,7 @@ export const autocompleteProduct = async (req, res) => {
         `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: prompt,
             config: {
                 responseMimeType: "application/json"
@@ -121,6 +128,13 @@ export const autocompleteProduct = async (req, res) => {
 
     } catch (error) {
         console.error("AI Autocomplete Error:", error);
+
+        // Detectar si fue un error de cuota (Rate Limit o Límite Diario)
+        const errorMessage = error.message || "";
+        if (errorMessage.includes("429") || errorMessage.includes("Quota") || error.status === 429) {
+            return res.status(429).json({ success: false, error: 'Límite de cuota agotado. Pausando motores de IA temporalmente...' });
+        }
+
         return res.status(500).json({ success: false, error: 'Hubo un error al autocompletar con IA.' });
     }
 };
