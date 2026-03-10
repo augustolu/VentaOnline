@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import fs from 'fs';
 
 // Initialize the SDK. It automatically picks up the GEMINI_API_KEY environment variable.
 const ai = new GoogleGenAI({});
@@ -33,7 +34,7 @@ export const generateDescription = async (req, res) => {
         `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-1.5-flash',
+            model: 'gemini-2.5-flash-lite',
             contents: prompt,
             config: {
                 responseMimeType: "application/json"
@@ -83,29 +84,35 @@ export const autocompleteProduct = async (req, res) => {
         }
 
         const prompt = `
-            Actúa como un experto en catalogación de eCommerce de tecnología.
-            El usuario ingresó el siguiente texto para crear un producto: "${query}"
+            Actúa como un experto en catalogación de eCommerce de tecnología para audiófilos, gamers y hardware.
+            El usuario ingresó el texto sugerido para un producto: "${query}"
             
-            Tu tarea es deducir de qué producto se trata y completar su ficha descriptiva.
-            DEBES DEVOLVER EXCLUSIVAMENTE UN ARCHIVO JSON VÁLIDO. NO USES MARKDOWN COMO \`\`\`json. NO ESCRIBAS NINGÚN SALUDO.
+            Tu tarea es deducir el producto exacto, limpiar su nombre y armar una ficha técnica profesional.
+            DEBES DEVOLVER EXCLUSIVAMENTE UN ARCHIVO JSON VÁLIDO. NO USES MARKDOWN COMO \`\`\`json.
             
             La estructura del JSON debe ser exactamente esta:
             {
-                "category": ["Debe ser UN ARRAY de strings seleccionando AL MENOS UNA y MÁXIMO TRES de estas opciones exactas, según aplique mejor: 'Tecnología y Audio', 'Periféricos y Computación', 'Pequeños Electrodomésticos', 'Accesorios de Celular', 'Teléfonos', 'Ofertas', 'Mayorista'. Ej: ['Teléfonos', 'Ofertas']"],
-                "brand": "La marca oficial del producto (ej. 'Samsung', 'Apple', 'Sony'). Si no se infiere, pon 'Genérico'.",
-                "model": "El nombre completo y limpio del modelo (ej. 'Galaxy S24 Ultra 256GB' o 'DualSense').",
-                "description": "Un texto de marketing atractivo y directo sobre este producto, máximo 2 párrafos cortos.",
+                "category": ["Debe ser UN ARRAY de strings seleccionando AL MENOS UNA y MÁXIMO TRES de estas opciones exactas: 'Tecnología y Audio', 'Periféricos y Computación', 'Pequeños Electrodomésticos', 'Accesorios de Celular', 'Teléfonos', 'Ofertas', 'Mayorista'. Ej: ['Tecnología y Audio']"],
+                "brand": "La marca oficial del producto. Si no se infiere, pon 'Genérico'.",
+                "model": "El nombre completo, limpio y comercial del modelo (ej. 'JBL Quantum 100' o 'Galaxy S24 Ultra 256GB').",
+                "description": "Un texto de marketing atractivo y directo, resaltando beneficios reales. Máximo 2 párrafos cortos.",
                 "features": [
-                    { "name": "Especificación 1 (ej. RAM)", "value": "Valor (ej. 8 GB)" },
-                    { "name": "Especificación 2", "value": "Valor" }
+                    { "name": "Especificación de hardware 1", "value": "Valor Técnico" },
+                    { "name": "Especificación de hardware 2", "value": "Valor Técnico" }
                 ]
             }
             
-            Intenta ser lo más preciso posible con la categoría elegida (debe matchar 100% con alguna de mi lista) y deduce las features más importantes si aplica.
+            REGLAS ESTRICTAS PARA EL ARRAY "features":
+            1. NO incluyas "Color", "Tipo", "Serie" ni la "Marca". Eso es irrelevante para técnicos.
+            2. DEBES inferir la verdadera hoja de datos (Data Sheet) del producto.
+            3. Si son auriculares: incluye cosas como 'Impedancia (ej. 32 Ohms)', 'Frecuencia (ej. 20Hz - 20kHz)', 'Largo del cable', 'Conectividad (ej. Jack 3.5mm)', 'Sensibilidad del micrófono', 'Drivers (ej. 40mm)'.
+            4. Si son periféricos (ratones/teclados): incluye 'DPI', 'Switches', 'Polling Rate', 'Conectividad'.
+            5. Si son celulares/tablets: 'Procesador', 'RAM', 'Batería (mAh)', 'Pantalla (Pulgadas, Hz)'.
+            6. Extrae al menos 4 features y hasta 8 si conoces bien el modelo. Si no estás seguro de algo, utiliza especificaciones estándar de esa gama de producto.
         `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-1.5-flash',
+            model: 'gemini-2.5-flash-lite',
             contents: prompt,
             config: {
                 responseMimeType: "application/json"
@@ -128,6 +135,8 @@ export const autocompleteProduct = async (req, res) => {
 
     } catch (error) {
         console.error("AI Autocomplete Error:", error);
+
+        try { fs.appendFileSync('ai-error.log', new Date().toISOString() + '\\n' + (error.stack || error.message || error) + '\\n\\n'); } catch (e) { }
 
         // Detectar si fue un error de cuota (Rate Limit o Límite Diario)
         const errorMessage = error.message || "";
