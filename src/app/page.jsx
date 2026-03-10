@@ -4,36 +4,118 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store/useAuthStore';
 import { useCartStore } from '@/lib/store/useCartStore';
+import { useFavoritesStore } from '@/lib/store/useFavoritesStore';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import AddProductModal from '@/components/AddProductModal';
+import BulkProductUploadModal from '@/components/BulkProductUploadModal';
+import StockUpdateModal from '@/components/StockUpdateModal';
+import PhysicalSaleModal from '@/components/PhysicalSaleModal';
+import DeleteProductModal from '@/components/DeleteProductModal';
+import { useSearchStore } from '@/lib/store/useSearchStore';
 
 export default function HomePage() {
-    const { isAdminOrEmployee, user, logout } = useAuthStore();
+    const { isAdminOrEmployee, isAdmin, user, logout } = useAuthStore();
+    const { searchQuery, setSearchQuery } = useSearchStore();
     const { addToCart } = useCartStore();
+    const { toggleFavorite, isFavorite } = useFavoritesStore();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+
+    // States Modales Administrativos
+    const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+    const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [selectedAdminProduct, setSelectedAdminProduct] = useState(null);
+
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const [isScrolled, setIsScrolled] = useState(false);
+    const [isHeroHovered, setIsHeroHovered] = useState(false);
 
     // Products State
     const [products, setProducts] = useState([]);
     const [loadingProducts, setLoadingProducts] = useState(true);
+    const [selectedCategory, setSelectedCategory] = useState(null);
+
+    const fetchProducts = async () => {
+        setLoadingProducts(true);
+        try {
+            const res = await fetch('http://localhost:3001/api/products');
+            const data = await res.json();
+            if (data.success) {
+                setProducts(data.data);
+            }
+        } catch (error) {
+            console.error("Error fetching products:", error);
+        } finally {
+            setLoadingProducts(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                const res = await fetch('http://localhost:3001/api/products');
-                const data = await res.json();
-                if (data.success) {
-                    setProducts(data.data);
-                }
-            } catch (error) {
-                console.error("Error fetching products:", error);
-            } finally {
-                setLoadingProducts(false);
-            }
-        };
         fetchProducts();
+
+        let lastMouseY = 0;
+
+        const updateVisibilityState = (mouseY) => {
+            const isScrollDown = window.scrollY > 50;
+            const isMouseDown = mouseY > window.innerHeight / 2.5; // Un poco más arriba de la mitad
+            setIsScrolled(isScrollDown || isMouseDown);
+        };
+
+        const handleScroll = () => {
+            updateVisibilityState(lastMouseY);
+        };
+
+        const handleMouseMove = (e) => {
+            lastMouseY = e.clientY;
+            updateVisibilityState(lastMouseY);
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        window.addEventListener('mousemove', handleMouseMove);
+
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('mousemove', handleMouseMove);
+        };
     }, []);
+
+    // Funciones Administrativas
+    const openStockModal = (product) => {
+        setSelectedAdminProduct(product);
+        setIsStockModalOpen(true);
+    };
+
+    const openSaleModal = (product) => {
+        setSelectedAdminProduct(product);
+        setIsSaleModalOpen(true);
+    };
+
+    const openDeleteModal = (product) => {
+        setSelectedAdminProduct(product);
+        setIsDeleteModalOpen(true);
+    };
+
+    const filteredProducts = products.filter(p => {
+        let match = true;
+
+        if (searchQuery.trim() !== '') {
+            const q = searchQuery.toLowerCase();
+            const brandMatch = p.brand?.toLowerCase().includes(q) || false;
+            const modelMatch = p.model?.toLowerCase().includes(q) || false;
+            if (!brandMatch && !modelMatch) match = false;
+        }
+
+        if (match && selectedCategory) {
+            const isOfferMatch = selectedCategory === "Ofertas" && p.price < 50000;
+            const isCategoryMatch = Array.isArray(p.category) ? p.category.includes(selectedCategory) : p.category === selectedCategory;
+
+            if (!isOfferMatch && !isCategoryMatch) match = false;
+        }
+
+        return match;
+    });
 
     return (
         <div className="bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark font-body transition-colors duration-200">
@@ -41,17 +123,23 @@ export default function HomePage() {
 
             <div className="md:hidden bg-surface-light dark:bg-surface-dark p-4 border-t border-gray-100 dark:border-gray-700">
                 <div className="relative">
-                    <input className="w-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-lg py-2 pl-4 pr-10 focus:outline-none focus:border-primary" placeholder="Buscar..." type="text" />
+                    <input
+                        className="w-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-lg py-2 pl-4 pr-10 focus:outline-none focus:border-primary"
+                        placeholder="Buscar repuestos..."
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                     <span className="material-icons absolute right-3 top-2.5 text-gray-400">search</span>
                 </div>
             </div>
 
-            <div className="container mx-auto px-4 py-6 flex gap-6">
-                <aside className="w-64 hidden lg:block flex-shrink-0">
+            <div className="container mx-auto px-4 py-6 flex gap-6 relative items-start">
+                <aside className="w-64 hidden lg:block flex-shrink-0 sticky top-10 h-fit z-20">
                     <div className="bg-surface-light dark:bg-surface-dark rounded-lg shadow-sm overflow-hidden border border-gray-100 dark:border-gray-700">
 
                         {isAdminOrEmployee() && (
-                            <div className="p-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                            <div className="p-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-col gap-2">
                                 <button
                                     onClick={() => setIsAddModalOpen(true)}
                                     className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white py-2.5 px-4 rounded-lg text-sm font-bold transition-all shadow-sm group"
@@ -59,6 +147,15 @@ export default function HomePage() {
                                     <span className="material-icons group-hover:rotate-90 transition-transform">add_circle</span>
                                     Agregar Producto
                                 </button>
+                                {isAdmin() && (
+                                    <button
+                                        onClick={() => setIsBulkModalOpen(true)}
+                                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white py-2 px-4 rounded-lg text-xs font-bold transition-all shadow-sm group"
+                                    >
+                                        <span className="material-icons text-[16px] group-hover:-translate-y-1 transition-transform">cloud_upload</span>
+                                        Carga Masiva (Excel)
+                                    </button>
+                                )}
                             </div>
                         )}
 
@@ -68,82 +165,68 @@ export default function HomePage() {
                         </div>
                         <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                             <li>
-                                <a className="group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium" href="#">
+                                <button onClick={() => setSelectedCategory(null)} className={`w-full group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium ${selectedCategory === null ? 'bg-primary/5 border-l-4 border-primary' : 'border-l-4 border-transparent'}`}>
                                     <div className="flex items-center gap-3">
-                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">headphones</span>
-                                        <span>Tecnología y Audio</span>
+                                        <span className={`material-icons text-lg ${selectedCategory === null ? 'text-primary' : 'text-gray-400 group-hover:text-primary'}`}>widgets</span>
+                                        <span className={`text-left line-clamp-2 ${selectedCategory === null ? 'font-bold text-primary' : ''}`}>Todas las categorías</span>
                                     </div>
-                                    <span className="material-icons text-gray-300 text-sm">chevron_right</span>
-                                </a>
+                                    <span className={`material-icons text-sm flex-shrink-0 ${selectedCategory === null ? 'text-primary' : 'text-gray-300'}`}>chevron_right</span>
+                                </button>
                             </li>
-                            <li>
-                                <a className="group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium" href="#">
-                                    <div className="flex items-center gap-3">
-                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">computer</span>
-                                        <span>Periféricos y Comp.</span>
-                                    </div>
-                                    <span className="material-icons text-gray-300 text-sm">chevron_right</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a className="group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium" href="#">
-                                    <div className="flex items-center gap-3">
-                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">blender</span>
-                                        <span>Pequeños Electrodomésticos</span>
-                                    </div>
-                                    <span className="material-icons text-gray-300 text-sm">chevron_right</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a className="group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium" href="#">
-                                    <div className="flex items-center gap-3">
-                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">cable</span>
-                                        <span>Accesorios de Celular</span>
-                                    </div>
-                                    <span className="material-icons text-gray-300 text-sm">chevron_right</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a className="group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium" href="#">
-                                    <div className="flex items-center gap-3">
-                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">store</span>
-                                        <span>Mayorista</span>
-                                    </div>
-                                    <span className="material-icons text-gray-300 text-sm">chevron_right</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a className="group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium" href="#">
-                                    <div className="flex items-center gap-3">
-                                        <span className="material-icons text-gray-400 group-hover:text-primary text-lg">local_offer</span>
-                                        <span className="text-secondary dark:text-red-400 font-bold">Ofertas</span>
-                                    </div>
-                                    <span className="material-icons text-gray-300 text-sm">chevron_right</span>
-                                </a>
-                            </li>
+                            {[
+                                { name: "Tecnología y Audio", icon: "headphones" },
+                                { name: "Periféricos y Computación", label: "Periféricos y Comp.", icon: "computer" },
+                                { name: "Pequeños Electrodomésticos", icon: "blender" },
+                                { name: "Accesorios de Celular", icon: "cable" },
+                                { name: "Teléfonos", icon: "smartphone" },
+                                { name: "Mayorista", icon: "store" },
+                                { name: "Ofertas", icon: "local_offer", isOffer: true }
+                            ].filter(cat => cat.name !== "Mayorista" || user?.role === 'Wholesaler' || isAdminOrEmployee()).map(cat => (
+                                <li key={cat.name}>
+                                    <button onClick={() => setSelectedCategory(cat.name)} className={`w-full group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium ${selectedCategory === cat.name ? 'bg-primary/5 border-l-4 border-primary' : 'border-l-4 border-transparent'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`material-icons text-lg flex-shrink-0 ${selectedCategory === cat.name ? 'text-primary' : 'text-gray-400 group-hover:text-primary'}`}>{cat.icon}</span>
+                                            <span className={`text-left ${cat.isOffer ? 'text-secondary dark:text-red-400 font-bold' : ''} ${selectedCategory === cat.name && !cat.isOffer ? 'font-bold text-primary' : ''}`}>
+                                                {cat.label || cat.name}
+                                            </span>
+                                        </div>
+                                        <span className={`material-icons text-sm flex-shrink-0 ml-2 ${selectedCategory === cat.name ? 'text-primary' : 'text-gray-300'}`}>chevron_right</span>
+                                    </button>
+                                </li>
+                            ))}
                         </ul>
                     </div>
 
 
                 </aside>
                 <main className="flex-1 min-w-0">
-                    <div className="relative bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl overflow-hidden shadow-md mb-8 h-64 md:h-80 lg:h-96 group">
-                        <img alt="Tech repair station" className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" src="/hero-repair.png" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent flex items-center">
-                            <div className="px-8 md:px-12 max-w-xl">
-                                <span className="bg-primary text-white text-xs font-bold px-2 py-1 rounded mb-4 inline-block uppercase tracking-wider">Servicio Oficial</span>
-                                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-white mb-4 leading-tight drop-shadow-md">
-                                    REPARACIONES <span className="text-primary">RÁPIDAS</span> Y <br />REPUESTOS ORIGINALES
-                                </h1>
-                                <p className="text-gray-200 font-medium mb-8 text-sm md:text-base drop-shadow-sm">Encontrá todo lo que necesitás para reparar tu equipo o traelo a nuestros expertos.</p>
+                    <div
+                        onMouseEnter={() => setIsHeroHovered(true)}
+                        onMouseLeave={() => setIsHeroHovered(false)}
+                        className={`relative bg-gray-950 rounded-[2rem] overflow-hidden shadow-xl mb-8 group flex flex-col justify-center transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'min-h-[120px] md:min-h-[140px]' : 'min-h-[300px] md:min-h-[380px]'}`}
+                    >
+                        <img alt="Tech repair station" className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-700 mix-blend-overlay" src="/hero-repair.png" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent"></div>
+                        <div className={`relative z-10 px-8 md:px-12 max-w-2xl w-full transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'py-6 md:py-8' : 'py-10 md:py-14'}`}>
+                            <div className={`flex items-center gap-4 transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'mb-2' : 'mb-4'}`}>
+                                <span className="bg-slate-700/50 border border-slate-600 text-slate-200 text-[10px] md:text-xs font-bold px-3 py-1.5 rounded inline-block uppercase tracking-wider backdrop-blur-sm">Servicio Oficial</span>
+                            </div>
+                            <h1 className={`font-black text-white leading-[1.1] tracking-tight transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'text-2xl md:text-3xl lg:text-4xl' : 'text-3xl md:text-4xl lg:text-5xl mb-4'}`}>
+                                <span className="flex flex-col md:flex-row md:items-center md:gap-2 flex-wrap">
+                                    <span>REPARACIONES <span className="text-slate-400">RÁPIDAS</span></span>
+                                    <span className={`transition-all duration-500 ${isScrolled && !isHeroHovered ? 'text-xl md:text-2xl text-white/90' : 'block'}`}>REPUESTOS PARA TODOS</span>
+                                </span>
+                            </h1>
+                            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isScrolled && !isHeroHovered ? 'max-h-0 opacity-0' : 'max-h-[300px] opacity-100'}`}>
+                                <p className="text-gray-400 font-medium mb-8 text-sm md:text-base max-w-lg mt-4">Encontrá todo lo que necesitás para reparar tu equipo o traelo a nuestros expertos en servicio técnico móvil e informático.</p>
                                 <div className="flex gap-3">
-                                    <button 
+                                    <button
                                         onClick={() => document.getElementById('productos')?.scrollIntoView({ behavior: 'smooth' })}
-                                        className="bg-primary hover:bg-primary-hover text-white font-bold py-3 px-6 rounded-lg shadow-lg shadow-primary/30 transition-all transform hover:-translate-y-1"
+                                        className="bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition-all transform hover:-translate-y-1"
                                     >
                                         Ver Productos
                                     </button>
-                                    <button className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-lg border border-white/30 transition-all">
+                                    <button className="bg-transparent hover:bg-white/10 text-white font-bold py-3 px-8 rounded-xl border-2 border-slate-600 hover:border-slate-500 transition-all">
                                         Contactar Técnico
                                     </button>
                                 </div>
@@ -152,32 +235,32 @@ export default function HomePage() {
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        <div className="bg-surface-light dark:bg-surface-dark p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
-                            <span className="material-icons text-primary text-3xl">local_shipping</span>
+                        <div className="bg-surface-light dark:bg-surface-dark p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-3 group hover:border-primary/50 transition-colors">
+                            <span className="material-icons text-primary text-3xl group-hover:scale-110 transition-transform">engineering</span>
                             <div>
-                                <h4 className="font-bold text-sm">Envío Gratis</h4>
-                                <p className="text-xs text-gray-500">En compras &gt; $50k</p>
+                                <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200">Técnicos Especializados</h4>
+                                <p className="text-xs text-gray-500 mt-1">Más de 5 años reparando celulares</p>
                             </div>
                         </div>
-                        <div className="bg-surface-light dark:bg-surface-dark p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
-                            <span className="material-icons text-primary text-3xl">verified</span>
+                        <div className="bg-surface-light dark:bg-surface-dark p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-3 group hover:border-primary/50 transition-colors">
+                            <span className="material-icons text-primary text-3xl group-hover:scale-110 transition-transform">inventory_2</span>
                             <div>
-                                <h4 className="font-bold text-sm">Garantía</h4>
-                                <p className="text-xs text-gray-500">12 meses oficial</p>
+                                <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200">Amplio Stock</h4>
+                                <p className="text-xs text-gray-500 mt-1">Pantallas, baterías, módulos y más</p>
                             </div>
                         </div>
-                        <div className="bg-surface-light dark:bg-surface-dark p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
-                            <span className="material-icons text-primary text-3xl">credit_card</span>
+                        <div className="bg-surface-light dark:bg-surface-dark p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-3 group hover:border-primary/50 transition-colors">
+                            <span className="material-icons text-primary text-3xl group-hover:scale-110 transition-transform">troubleshoot</span>
                             <div>
-                                <h4 className="font-bold text-sm">Cuotas</h4>
-                                <p className="text-xs text-gray-500">3 y 6 sin interés</p>
+                                <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200">Diagnóstico sin cargo</h4>
+                                <p className="text-xs text-gray-500 mt-1">Revisamos tu equipo gratis</p>
                             </div>
                         </div>
-                        <div className="bg-surface-light dark:bg-surface-dark p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3">
-                            <span className="material-icons text-primary text-3xl">support_agent</span>
+                        <div className="bg-surface-light dark:bg-surface-dark p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-3 group hover:border-primary/50 transition-colors">
+                            <span className="material-icons text-primary text-3xl group-hover:scale-110 transition-transform">thumb_up</span>
                             <div>
-                                <h4 className="font-bold text-sm">Soporte 24/7</h4>
-                                <p className="text-xs text-gray-500">Online siempre</p>
+                                <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200">Clientes Satisfechos</h4>
+                                <p className="text-xs text-gray-500 mt-1">Servicio rápido y confiable</p>
                             </div>
                         </div>
                     </div>
@@ -205,74 +288,100 @@ export default function HomePage() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
-                            {products.map(product => (
-                                <Link
-                                    key={product.id}
-                                    href={`/product/${product.id}`}
-                                    className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-all group flex flex-col hover:-translate-y-1 duration-300 block"
-                                >
-                                    <div className="relative aspect-square bg-gray-50 dark:bg-gray-900/50 flex items-center justify-center p-4">
-                                        {product.image_url ? (
-                                            <img src={`http://localhost:3001${product.image_url}`} alt={product.model} className="max-h-full max-w-full object-contain mix-blend-multiply dark:mix-blend-normal group-hover:scale-105 transition-transform duration-300" />
-                                        ) : (
-                                            <span className="material-icons text-gray-300 dark:text-gray-600 text-6xl">image_not_supported</span>
-                                        )}
-                                        {product.stock_online === 0 && product.stock_physical === 0 && (
-                                            <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded">Sin Stock</span>
-                                        )}
-                                    </div>
-                                    <div className="p-4 flex-1 flex flex-col">
-                                        <p className="text-[10px] sm:text-xs text-gray-500 mb-1 uppercase tracking-wide font-bold">{product.category} • {product.brand}</p>
-                                        <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2 line-clamp-2 min-h-[40px] leading-tight text-sm sm:text-base">{product.model}</h3>
-                                        {product.compatibility && (
-                                            <p className="text-[10px] sm:text-xs text-gray-500 mb-3 line-clamp-1 italic bg-gray-50 dark:bg-gray-700/50 inline-block px-1.5 py-0.5 rounded border border-gray-100 dark:border-gray-700">Para: {product.compatibility}</p>
-                                        )}
-                                        <div className="mt-auto">
-                                            <div className="flex items-end justify-between">
-                                                <span className="text-lg sm:text-xl font-black text-primary">${Number(product.price).toLocaleString('es-AR')}</span>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        addToCart(product);
-                                                    }}
-                                                    className="bg-gray-100 hover:bg-primary hover:text-white dark:bg-gray-700 dark:hover:bg-primary text-gray-800 dark:text-white w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all shadow-sm focus:outline-none"
-                                                    title="Añadir al carrito"
-                                                >
-                                                    <span className="material-icons text-sm sm:text-base">add_shopping_cart</span>
-                                                </button>
+                            {filteredProducts.length === 0 ? (
+                                <div className="col-span-full py-12 text-center text-gray-500 dark:text-gray-400">
+                                    <span className="material-icons text-5xl mb-2 opacity-30">search_off</span>
+                                    <p>No se encontraron productos para esta búsqueda o categoría.</p>
+                                </div>
+                            ) : (
+                                filteredProducts.map(product => (
+                                    <Link
+                                        key={product.id}
+                                        href={`/product/${product.id}`}
+                                        className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-all group flex flex-col hover:-translate-y-1 duration-300 block relative"
+                                    >
+                                        <div className="relative aspect-square bg-gray-50 dark:bg-gray-900/50 flex items-center justify-center p-4">
+                                            {product.image_url ? (
+                                                <img src={`http://localhost:3001${product.image_url}`} alt={product.model} className="max-h-full max-w-full object-contain mix-blend-multiply dark:mix-blend-normal group-hover:scale-105 transition-transform duration-300" />
+                                            ) : (
+                                                <span className="material-icons text-gray-300 dark:text-gray-600 text-6xl">image_not_supported</span>
+                                            )}
+                                            {product.stock_online === 0 && product.stock_physical === 0 && (
+                                                <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded">Sin Stock</span>
+                                            )}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    toggleFavorite(product);
+                                                }}
+                                                className="absolute top-2 left-2 p-1.5 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur text-gray-400 hover:text-red-500 hover:bg-white dark:hover:bg-gray-700 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                                title="Añadir a Favoritos"
+                                            >
+                                                <span className="material-icons text-[18px]">
+                                                    {isFavorite(product.id) ? 'favorite' : 'favorite_border'}
+                                                </span>
+                                            </button>
+                                        </div>
+                                        <div className="p-4 flex-1 flex flex-col">
+                                            <p className="text-[10px] sm:text-xs text-gray-500 mb-1 uppercase tracking-wide font-bold line-clamp-1">{Array.isArray(product.category) ? product.category.join(", ") : product.category} • {product.brand}</p>
+                                            <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2 line-clamp-2 min-h-[40px] leading-tight text-sm sm:text-base">{product.model}</h3>
+                                            {product.compatibility && (
+                                                <p className="text-[10px] sm:text-xs text-gray-500 mb-3 line-clamp-1 italic bg-gray-50 dark:bg-gray-700/50 inline-block px-1.5 py-0.5 rounded border border-gray-100 dark:border-gray-700">Para: {product.compatibility}</p>
+                                            )}
+                                            <div className="mt-auto">
+                                                <div className="flex items-end justify-between">
+                                                    <span className="text-lg sm:text-xl font-black text-primary">${Number(product.price).toLocaleString('es-AR')}</span>
+                                                    {!isAdminOrEmployee() ? (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                addToCart(product);
+                                                            }}
+                                                            className="bg-gray-100 hover:bg-primary hover:text-white dark:bg-gray-700 dark:hover:bg-primary text-gray-800 dark:text-white w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all shadow-sm focus:outline-none"
+                                                            title="Añadir al carrito"
+                                                        >
+                                                            <span className="material-icons text-sm sm:text-base">add_shopping_cart</span>
+                                                        </button>
+                                                    ) : (
+                                                        <div className="flex gap-1.5 z-10">
+                                                            <button
+                                                                title="Gestión de Stock (Online / Físico)"
+                                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); openStockModal(product); }}
+                                                                className="bg-indigo-100 hover:bg-indigo-600 text-indigo-700 hover:text-white dark:bg-indigo-900/40 dark:text-indigo-300 dark:hover:bg-indigo-600 dark:hover:text-white w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm"
+                                                            >
+                                                                <span className="material-icons text-sm">inventory</span>
+                                                            </button>
+                                                            <button
+                                                                title="Venta Física (Mostrador)"
+                                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); openSaleModal(product); }}
+                                                                className="bg-emerald-100 hover:bg-emerald-600 text-emerald-700 hover:text-white dark:bg-emerald-900/40 dark:text-emerald-300 dark:hover:bg-emerald-600 dark:hover:text-white w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm"
+                                                            >
+                                                                <span className="material-icons text-sm">point_of_sale</span>
+                                                            </button>
+
+                                                            <button
+                                                                title="Eliminar Producto"
+                                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); openDeleteModal(product); }}
+                                                                className="bg-red-100 hover:bg-red-600 text-red-700 hover:text-white dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-600 dark:hover:text-white w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm"
+                                                            >
+                                                                <span className="material-icons text-sm">delete_forever</span>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </Link>
-                            ))}
+                                    </Link>
+                                ))
+                            )}
                         </div>
                     )}
 
-                    {(!user || user.role?.name !== 'Wholesaler') && (
-                        <div className="mt-8 bg-gradient-to-r from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/5 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative group">
-                            <div className="relative z-10 max-w-2xl">
-                                <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full mb-4 inline-block tracking-wider uppercase shadow-sm">
-                                    Nuevo Programa
-                                </span>
-                                <h3 className="text-3xl font-black text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                                    ¿Querés ser <span className="text-primary">Mayorista?</span>
-                                </h3>
-                                <p className="text-gray-600 dark:text-gray-300 mb-6 text-base md:text-lg">
-                                    Registrate ahora y accedé a una lista de precios exclusiva orientada a revendedores y comercios. Disfrutá de descuentos por volumen.
-                                </p>
-                                <Link href="/register?type=wholesaler" className="inline-block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-3 rounded-xl font-bold hover:scale-105 transition-transform shadow-lg hover:shadow-gray-900/40 flex items-center gap-2 w-max">
-                                    <span className="material-icons">storefront</span>
-                                    Solicitar Cuenta Mayorista
-                                </Link>
-                            </div>
-                            <div className="hidden md:block absolute right-[-20px] bottom-[-40px] opacity-10 dark:opacity-20 group-hover:scale-110 transition-transform duration-700">
-                                <span className="material-icons" style={{ fontSize: '240px' }}>storefront</span>
-                            </div>
-                        </div>
-                    )}
+
                 </main>
-            </div>
+            </div >
 
             <div className="fixed bottom-6 right-6 z-50">
                 <button className="bg-secondary hover:bg-gray-800 text-white rounded-full p-4 shadow-lg shadow-gray-500/40 flex items-center gap-2 transition-all hover:scale-105 group">
@@ -285,8 +394,40 @@ export default function HomePage() {
 
             <AddProductModal
                 isOpen={isAddModalOpen}
-                onClose={() => setIsAddModalOpen(false)}
+                onClose={() => {
+                    setIsAddModalOpen(false);
+                    fetchProducts(); // Refrescar catálogo al cerrar
+                }}
             />
-        </div>
+
+            <BulkProductUploadModal
+                isOpen={isBulkModalOpen}
+                onClose={() => {
+                    setIsBulkModalOpen(false);
+                    fetchProducts(); // Refrescar catálogo masivo
+                }}
+            />
+
+            <StockUpdateModal
+                isOpen={isStockModalOpen}
+                onClose={() => setIsStockModalOpen(false)}
+                product={selectedAdminProduct}
+                onSuccess={() => fetchProducts()}
+            />
+
+            <PhysicalSaleModal
+                isOpen={isSaleModalOpen}
+                onClose={() => setIsSaleModalOpen(false)}
+                product={selectedAdminProduct}
+                onSuccess={() => fetchProducts()}
+            />
+
+            <DeleteProductModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                product={selectedAdminProduct}
+                onSuccess={() => fetchProducts()}
+            />
+        </div >
     );
 }

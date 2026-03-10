@@ -60,3 +60,67 @@ export const generateDescription = async (req, res) => {
         return res.status(500).json({ success: false, error: 'Hubo un error al generar la descripción con Inteligencia Artificial.' });
     }
 };
+
+/**
+ * Autocompletado integral del producto.
+ * Dada una pista o nombre parcial en `query`, Gemini deduce y estructura
+ * todos los campos necesarios para crear el producto (categoría, marca, modelo limpio,
+ * descripción y especificaciones técnicas).
+ */
+export const autocompleteProduct = async (req, res) => {
+    try {
+        const { query } = req.body;
+
+        if (!query) {
+            return res.status(400).json({ success: false, error: 'Se requiere una consulta (ej. "s24 ultra") para autocompletar.' });
+        }
+
+        const prompt = `
+            Actúa como un experto en catalogación de eCommerce de tecnología.
+            El usuario ingresó el siguiente texto para crear un producto: "${query}"
+            
+            Tu tarea es deducir de qué producto se trata y completar su ficha descriptiva.
+            DEBES DEVOLVER EXCLUSIVAMENTE UN ARCHIVO JSON VÁLIDO. NO USES MARKDOWN COMO \`\`\`json. NO ESCRIBAS NINGÚN SALUDO.
+            
+            La estructura del JSON debe ser exactamente esta:
+            {
+                "category": ["Debe ser UN ARRAY de strings seleccionando AL MENOS UNA y MÁXIMO TRES de estas opciones exactas, según aplique mejor: 'Tecnología y Audio', 'Periféricos y Computación', 'Pequeños Electrodomésticos', 'Accesorios de Celular', 'Teléfonos', 'Ofertas', 'Mayorista'. Ej: ['Teléfonos', 'Ofertas']"],
+                "brand": "La marca oficial del producto (ej. 'Samsung', 'Apple', 'Sony'). Si no se infiere, pon 'Genérico'.",
+                "model": "El nombre completo y limpio del modelo (ej. 'Galaxy S24 Ultra 256GB' o 'DualSense').",
+                "description": "Un texto de marketing atractivo y directo sobre este producto, máximo 2 párrafos cortos.",
+                "features": [
+                    { "name": "Especificación 1 (ej. RAM)", "value": "Valor (ej. 8 GB)" },
+                    { "name": "Especificación 2", "value": "Valor" }
+                ]
+            }
+            
+            Intenta ser lo más preciso posible con la categoría elegida (debe matchar 100% con alguna de mi lista) y deduce las features más importantes si aplica.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json"
+            }
+        });
+
+        const rawJson = response.text;
+        let aiData;
+        try {
+            aiData = JSON.parse(rawJson);
+        } catch (e) {
+            console.error("Failed to parse JSON from AI", rawJson);
+            return res.status(500).json({ success: false, error: 'Respuesta inválida de la IA.' });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: aiData
+        });
+
+    } catch (error) {
+        console.error("AI Autocomplete Error:", error);
+        return res.status(500).json({ success: false, error: 'Hubo un error al autocompletar con IA.' });
+    }
+};

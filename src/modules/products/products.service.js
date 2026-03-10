@@ -7,11 +7,17 @@ export class ProductError extends Error {
     }
 }
 
+// Admin Services Proxy (Para que controller importe solo desde aquí)
+import { deleteProduct as dP, updateProductStock as uPS, registerPhysicalSale as rPS } from './products.admin.service.js';
+export const deleteProduct = dP;
+export const updateProductStock = uPS;
+export const registerPhysicalSale = rPS;
+
 /**
  * Servicio para crear un nuevo producto con su stock y precio.
  */
 export async function createProduct({
-    category,
+    category, // Este ahora es un Array de Strings
     brand,
     model,
     compatibility,
@@ -26,8 +32,8 @@ export async function createProduct({
     features
 }) {
     // 1. Validaciones básicas
-    if (!category || !brand || !model || !price) {
-        throw new ProductError('Faltan campos obligatorios: categoría, marca, modelo o precio.');
+    if (!category || !Array.isArray(category) || category.length === 0 || !brand || !model || !price) {
+        throw new ProductError('Faltan campos obligatorios: categoría (al menos una), marca, modelo o precio.');
     }
 
     if (price < 0 || stock_online < 0 || stock_physical < 0) {

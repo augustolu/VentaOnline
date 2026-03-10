@@ -10,7 +10,7 @@ export default function AddProductModal({ isOpen, onClose }) {
     const { token } = useAuthStore();
 
     const [formData, setFormData] = useState({
-        category: "",
+        category: [], // Ahora es un Array
         brand: "",
         model: "",
         compatibility: "",
@@ -32,20 +32,26 @@ export default function AddProductModal({ isOpen, onClose }) {
 
     // Image Upload & Cropping State
     const [imgSrc, setImgSrc] = useState('');
+    const [imageOptions, setImageOptions] = useState([]); // Nuevo: Guardar las top 5 imágenes
+    const [showOptionsModal, setShowOptionsModal] = useState(false); // Nuevo: Modal de opciones
+
     const [crop, setCrop] = useState();
     const [completedCrop, setCompletedCrop] = useState(null);
     const imgRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
 
-    // Helper: Initialize crop to center and max size
+    // Helper: Initialize crop to max size without forced aspect ratio
     function onImageLoad(e) {
-        const { naturalWidth: width, naturalHeight: height } = e.currentTarget;
-        const crop = centerCrop(
-            makeAspectCrop({ unit: '%', width: 90 }, 1, width, height),
+        const { width, height } = e.currentTarget;
+        const initialCrop = {
+            unit: 'px',
+            x: 0,
+            y: 0,
             width,
             height
-        );
-        setCrop(crop);
+        };
+        setCrop(initialCrop);
+        setCompletedCrop(initialCrop); // Crucial para que suba si el usuario no mueve el mouse
     }
 
     // Handle File Selection
@@ -53,12 +59,15 @@ export default function AddProductModal({ isOpen, onClose }) {
         if (e.target.files && e.target.files.length > 0) {
             setCrop(undefined); // Reset crop
             const reader = new FileReader();
-            reader.addEventListener('load', () => setImgSrc(reader.result?.toString() || ''));
+            reader.addEventListener('load', () => {
+                setImgSrc(reader.result?.toString() || '');
+                setImageOptions([]); // Ocultamos opciones si sube manual
+            });
             reader.readAsDataURL(e.target.files[0]);
         }
     };
 
-    // Helper: Get cropped image blob using Canvas API
+    // Helper: Get cropped image blob using Canvas API (Implementando Auto-Padding Blanco 800x800)
     const getCroppedImgBlob = async () => {
         if (!completedCrop || !imgRef.current) return null;
 
@@ -68,28 +77,47 @@ export default function AddProductModal({ isOpen, onClose }) {
 
         if (!ctx) return null;
 
-        // Scale down large images (e.g. max 800x800)
+        // Escalas de la imagen visualizada vs natural
         const scaleX = image.naturalWidth / image.width;
         const scaleY = image.naturalHeight / image.height;
 
-        // Dest size
-        const destSize = 800; // Final image will be max 800x800
+        // Tamaño final cuadrado exigido por el cliente
+        const destSize = 800;
         canvas.width = destSize;
         canvas.height = destSize;
 
+        // 1. PINTAR EL FONDO BLANCO PURO (PADDING)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, destSize, destSize);
+
         ctx.imageSmoothingQuality = 'high';
 
-        // Draw cropped area
+        // Dimensiones del recorte original 
+        const cropWidth = completedCrop.width * scaleX;
+        const cropHeight = completedCrop.height * scaleY;
+
+        // 2. CALCULAR PROPORCIONES PARA ENCAJAR EN 800x800 SIN ACHATAR
+        const ratio = Math.min(destSize / cropWidth, destSize / cropHeight);
+
+        // El tamaño que tendrá la imagen dentro del canvas 800x800
+        const drawWidth = cropWidth * ratio;
+        const drawHeight = cropHeight * ratio;
+
+        // Para centrarlo perfectamente
+        const offsetX = (destSize - drawWidth) / 2;
+        const offsetY = (destSize - drawHeight) / 2;
+
+        // 3. DIBUJAR LA IMAGEN RESPETANDO EL RECORTE RECTANGULAR, CENTRADA
         ctx.drawImage(
-            image,
-            completedCrop.x * scaleX,
-            completedCrop.y * scaleY,
-            completedCrop.width * scaleX,
-            completedCrop.height * scaleY,
-            0,
-            0,
-            destSize,
-            destSize
+            image, // imagen original
+            completedCrop.x * scaleX, // inicio X de recorte
+            completedCrop.y * scaleY, // inicio Y de recorte
+            cropWidth, // ancho de recorte
+            cropHeight, // alto de recorte
+            offsetX, // donde empezar a pintar en el canvas destino X
+            offsetY, // donde empezar a pintar en el canvas destino Y
+            drawWidth, // ancho encogido final
+            drawHeight // alto encogido final
         );
 
         // Convert to WebP Promise
@@ -100,12 +128,23 @@ export default function AddProductModal({ isOpen, onClose }) {
                     return;
                 }
                 resolve(blob);
-            }, 'image/webp', 0.85); // Compress 85%
+            }, 'image/webp', 0.90);
         });
     };
 
     const handleChange = (e) => {
-        const { name, value, type } = e.target;
+        const { name, value, type, checked } = e.target;
+
+        if (name === 'category') {
+            setFormData(prev => ({
+                ...prev,
+                category: checked
+                    ? [...prev.category, value]
+                    : prev.category.filter(c => c !== value)
+            }));
+            return;
+        }
+
         setFormData((prev) => ({
             ...prev,
             [name]: type === "number" ? Number(value) : value,
@@ -113,8 +152,8 @@ export default function AddProductModal({ isOpen, onClose }) {
     };
 
     const handleAIGenerate = async () => {
-        if (!formData.brand || !formData.model || !formData.category) {
-            setError("Por favor completa Categoría, Marca y Modelo antes de usar la IA.");
+        if (!formData.brand || !formData.model || formData.category.length === 0) {
+            setError("Por favor completa Categoría (al menos una), Marca y Modelo antes de usar la IA.");
             return;
         }
 
@@ -125,7 +164,7 @@ export default function AddProductModal({ isOpen, onClose }) {
             const res = await axios.post("http://localhost:3001/api/ai/generate-description", {
                 brand: formData.brand,
                 model: formData.model,
-                category: formData.category
+                category: formData.category.join(", ") // Enviamos como string unificado para la IA descriptiva
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -138,6 +177,65 @@ export default function AddProductModal({ isOpen, onClose }) {
             }
         } catch (err) {
             setError(err.response?.data?.error || "Error al conectar con la IA.");
+        } finally {
+            setIsGeneratingAI(false);
+        }
+    };
+
+    const handleAutocompleteAll = async () => {
+        if (!formData.model || formData.model.length < 3) {
+            setError("Por favor escribe al menos 3 letras en Modelo para que la IA entienda qué buscas.");
+            return;
+        }
+
+        setIsGeneratingAI(true);
+        setError("");
+
+        try {
+            // 1. Obtener datos estructurados de Gemini
+            const aiRes = await axios.post("http://localhost:3001/api/ai/autocomplete-product", {
+                query: formData.model
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (aiRes.data.success && aiRes.data.data) {
+                const aiData = aiRes.data.data;
+
+                if (aiData.features && aiData.features.length > 0) {
+                    setFeatures(aiData.features);
+                }
+
+                // Asegurar que category sea un array (en caso que Gemini devuelva un string por error)
+                const parsedCategory = Array.isArray(aiData.category) ? aiData.category : (aiData.category ? [aiData.category] : prev.category);
+
+                // Setear formulario inmediatamente (manteniendo el MODELO ORIGINAL del usuario)
+                setFormData(prev => ({
+                    ...prev,
+                    category: parsedCategory,
+                    brand: aiData.brand || prev.brand,
+                    description: aiData.description || prev.description
+                }));
+
+                // 2. Encadenar búsqueda de imagen usando los datos precisos de la IA
+                const categoryStr = Array.isArray(parsedCategory) ? parsedCategory[0] : parsedCategory;
+                const imgQuery = `${categoryStr} ${aiData.brand} ${aiData.model}`;
+                try {
+                    const imgRes = await axios.post("http://localhost:3001/api/products/auto-image", { query: imgQuery }, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (imgRes.data.success && imgRes.data.imagesBase64 && imgRes.data.imagesBase64.length > 0) {
+                        setCrop(undefined);
+                        setImgSrc(imgRes.data.imagesBase64[0]); // Seleccionamos la mejor por defecto
+                        setImageOptions(imgRes.data.imagesBase64); // Guardamos las 5 alternativas
+                    }
+                } catch (imgErr) {
+                    // Solo logueamos si falla la imagen, no detenemos el autocompletado del form
+                    console.error("Autoimage failed after AI:", imgErr);
+                }
+            }
+        } catch (err) {
+            setError(err.response?.data?.error || "Error al autocompletar con la IA.");
         } finally {
             setIsGeneratingAI(false);
         }
@@ -193,7 +291,7 @@ export default function AddProductModal({ isOpen, onClose }) {
                 onClose();
                 // Reset form
                 setFormData({
-                    category: "", brand: "", model: "", compatibility: "", price: "",
+                    category: [], brand: "", model: "", compatibility: "", price: "",
                     stock_online: 0, stock_physical: 0, store_location: "", wholesale_price: "", wholesale_min_quantity: 5, description: ""
                 });
                 setFeatures([]);
@@ -245,7 +343,44 @@ export default function AddProductModal({ isOpen, onClose }) {
 
                         {/* Image Upload Area */}
                         <div>
-                            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Imagen del Producto</h3>
+                            <div className="flex justify-between items-center mb-3">
+                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Imagen del Producto</h3>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        if (formData.category.length === 0 || !formData.brand || !formData.model) {
+                                            setError("Por favor completa Categoría, Marca y Modelo para buscar una foto.");
+                                            return;
+                                        }
+                                        setIsGeneratingAI(true);
+                                        setError("");
+                                        try {
+                                            const categoryStr = formData.category[0];
+                                            const query = `${categoryStr} ${formData.brand} ${formData.model}`;
+                                            const res = await axios.post("http://localhost:3001/api/products/auto-image", { query }, {
+                                                headers: { Authorization: `Bearer ${token}` }
+                                            });
+                                            if (res.data.success && res.data.imagesBase64 && res.data.imagesBase64.length > 0) {
+                                                setCrop(undefined);
+                                                setImgSrc(res.data.imagesBase64[0]);
+                                                setImageOptions(res.data.imagesBase64);
+                                            }
+                                        } catch (err) {
+                                            setError(err.response?.data?.message || "Error al buscar imagen online.");
+                                        } finally {
+                                            setIsGeneratingAI(false);
+                                        }
+                                    }}
+                                    disabled={isGeneratingAI || !!imgSrc}
+                                    className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 px-3 py-1.5 rounded-lg flex items-center gap-1 font-bold transition-colors disabled:opacity-50"
+                                >
+                                    {isGeneratingAI && !imgSrc ? (
+                                        <><span className="material-icons text-[14px] animate-spin">autorenew</span> Buscando...</>
+                                    ) : (
+                                        <><span className="material-icons text-[14px]">travel_explore</span> Buscar foto (Auto)</>
+                                    )}
+                                </button>
+                            </div>
                             <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
 
                                 {!imgSrc && (
@@ -262,16 +397,22 @@ export default function AddProductModal({ isOpen, onClose }) {
                                 )}
 
                                 {imgSrc && (
-                                    <div className="flex flex-col items-center">
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 text-center">
-                                            Ajusta el área para que la imagen sea cuadrada. Se optimizará automáticamente.
-                                        </p>
+                                    <div className="flex flex-col items-center relative">
+                                        {imageOptions.length > 1 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowOptionsModal(true)}
+                                                className="absolute top-0 right-0 z-10 bg-white/90 hover:bg-white text-primary text-xs font-bold px-3 py-1.5 rounded-bl-lg rounded-tr-lg shadow-md flex items-center gap-1 transition-colors"
+                                            >
+                                                <span className="material-icons text-[16px]">collections</span> Elegir otra opción
+                                            </button>
+                                        )}
+                                        <p className="sr-only">Ajusta el recorte.</p>
                                         <div className="max-w-xs sm:max-w-sm max-h-64 overflow-hidden rounded-lg bg-black flex items-center justify-center">
                                             <ReactCrop
                                                 crop={crop}
                                                 onChange={(_, percentCrop) => setCrop(percentCrop)}
                                                 onComplete={(c) => setCompletedCrop(c)}
-                                                aspect={1}
                                                 circularCrop={false}
                                             >
                                                 <img
@@ -285,10 +426,10 @@ export default function AddProductModal({ isOpen, onClose }) {
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={() => { setImgSrc(''); setCompletedCrop(null); }}
+                                            onClick={() => { setImgSrc(''); setCompletedCrop(null); setImageOptions([]); }}
                                             className="mt-4 text-xs font-bold text-red-500 hover:text-red-700 transition-colors"
                                         >
-                                            Eliminar y subir otra
+                                            Eliminar y subir otra manual
                                         </button>
                                     </div>
                                 )}
@@ -299,29 +440,50 @@ export default function AddProductModal({ isOpen, onClose }) {
                         <div>
                             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Info Básica</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Categoría *</label>
-                                    <select
-                                        required
-                                        name="category"
-                                        value={formData.category}
-                                        onChange={handleChange}
-                                        className="w-full text-sm border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md p-2 outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-700 dark:text-gray-200"
-                                    >
-                                        <option value="" disabled>Seleccionar categoría...</option>
-                                        <option value="Tecnología y Audio">Tecnología y Audio (Auriculares, Parlantes)</option>
-                                        <option value="Periféricos y Computación">Periféricos y Computación (Teclados)</option>
-                                        <option value="Pequeños Electrodomésticos">Pequeños Electrodomésticos</option>
-                                        <option value="Accesorios de Celular">Accesorios de Celular (Fundas, Vidrios templados)</option>
-                                        <option value="Teléfonos">Teléfonos</option>
-                                    </select>
+                                <div className="col-span-1 md:col-span-2">
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">Categorías *</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {[
+                                            "Tecnología y Audio",
+                                            "Periféricos y Computación",
+                                            "Pequeños Electrodomésticos",
+                                            "Accesorios de Celular",
+                                            "Teléfonos",
+                                            "Ofertas",
+                                            "Mayorista"
+                                        ].map(cat => (
+                                            <label key={cat} className={`cursor-pointer px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${formData.category.includes(cat) ? 'bg-indigo-100 border-indigo-500 text-indigo-700 dark:bg-indigo-900/40 dark:border-indigo-500 dark:text-indigo-300' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    name="category"
+                                                    value={cat}
+                                                    checked={formData.category.includes(cat)}
+                                                    onChange={handleChange}
+                                                    className="hidden"
+                                                />
+                                                {cat}
+                                            </label>
+                                        ))}
+                                    </div>
+                                    {formData.category.length === 0 && <p className="text-[10px] text-red-500 mt-1">Debes seleccionar al menos una.</p>}
                                 </div>
-                                <div>
+                                <div className="col-span-1 md:col-span-2">
                                     <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Marca *</label>
                                     <input required name="brand" type="text" placeholder="Ej: Samsung" value={formData.brand} onChange={handleChange} className="w-full text-sm border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md p-2 outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
                                 </div>
                                 <div className="md:col-span-2">
-                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Modelo *</label>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">Modelo *</label>
+                                        <button
+                                            type="button"
+                                            onClick={handleAutocompleteAll}
+                                            disabled={isGeneratingAI}
+                                            className="text-[11px] bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white px-3 py-1 rounded-md flex items-center gap-1 font-bold shadow-sm transition-all disabled:opacity-50"
+                                            title="Escribe un modelo (ej: 'Ps5 Joystick') y la IA intentará completar TODA la ficha y la foto al instante."
+                                        >
+                                            <span className="material-icons text-[14px]">auto_awesome</span> Autocompletar
+                                        </button>
+                                    </div>
                                     <input required name="model" type="text" placeholder="Ej: Galaxy S21 Ultra" value={formData.model} onChange={handleChange} className="w-full text-sm border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md p-2 outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
                                 </div>
                                 <div className="md:col-span-2">
@@ -466,6 +628,39 @@ export default function AddProductModal({ isOpen, onClose }) {
                     </button>
                 </div>
             </div>
+
+            {/* Sub-Modal para Elegir Alternativas de Imagen */}
+            {showOptionsModal && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full overflow-hidden shadow-2xl">
+                        <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700">
+                            <h3 className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                                <span className="material-icons text-primary">collections</span>
+                                Seleccionar la Mejor Foto
+                            </h3>
+                            <button onClick={() => setShowOptionsModal(false)} className="text-gray-400 hover:text-red-500">
+                                <span className="material-icons">close</span>
+                            </button>
+                        </div>
+                        <div className="p-4 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
+                            {imageOptions.map((optSrc, i) => (
+                                <div
+                                    key={i}
+                                    onClick={() => {
+                                        setImgSrc(optSrc);
+                                        setCrop(undefined);
+                                        setShowOptionsModal(false);
+                                    }}
+                                    className={`cursor-pointer rounded-lg border-2 overflow-hidden transition-all ${imgSrc === optSrc ? 'border-primary ring-2 ring-primary ring-offset-2' : 'border-transparent hover:border-indigo-300'}`}
+                                >
+                                    <img src={optSrc} alt={`Option ${i}`} className="w-full h-32 object-contain bg-white" />
+                                </div>
+                            ))}
+                        </div>
+
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -17,6 +17,12 @@ export const useAuthStore = create()(
                 const user = get().user;
                 if (!user || !user.role) return false;
                 return user.role.name === 'Admin' || user.role.name === 'Employee';
+            },
+
+            isAdmin: () => {
+                const user = get().user;
+                if (!user || !user.role) return false;
+                return user.role.name === 'Admin';
             }
         }),
         {

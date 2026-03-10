@@ -5,11 +5,13 @@ import { useParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useCartStore } from '@/lib/store/useCartStore';
+import { useFavoritesStore } from '@/lib/store/useFavoritesStore';
 
 export default function ProductDetailPage() {
     const params = useParams();
     const productId = params?.id;
     const { addToCart } = useCartStore();
+    const { isFavorite, toggleFavorite } = useFavoritesStore();
 
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -169,8 +171,16 @@ export default function ProductDetailPage() {
                                         <span className="material-icons">shopping_cart</span>
                                         Añadir al Carrito
                                     </button>
-                                    <button className="w-14 h-14 border-2 border-gray-200 dark:border-gray-700 text-gray-400 hover:text-red-500 hover:border-red-500 rounded-xl flex items-center justify-center transition-colors">
-                                        <span className="material-icons">favorite_border</span>
+                                    <button
+                                        onClick={() => toggleFavorite(product)}
+                                        className={`w-14 h-14 border-2 rounded-xl flex items-center justify-center transition-colors ${isFavorite(product.id)
+                                            ? 'border-red-500 text-red-500 bg-red-50 dark:bg-red-900/20'
+                                            : 'border-gray-200 dark:border-gray-700 text-gray-400 hover:text-red-500 hover:border-red-500'
+                                            }`}
+                                    >
+                                        <span className="material-icons">
+                                            {isFavorite(product.id) ? 'favorite' : 'favorite_border'}
+                                        </span>
                                     </button>
                                 </div>
                             </div>

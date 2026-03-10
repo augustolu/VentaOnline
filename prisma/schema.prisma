@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 /// Roles del sistema (Admin, Employee, Client, Wholesaler).
@@ -30,6 +31,7 @@ model User {
   updated_at    DateTime?  @default(now()) @updatedAt @db.Timestamp(6)
   audit_logs    AuditLog[]
   orders        Order[]
+  sales         Sale[]
   role          Role       @relation(fields: [role_id], references: [id], onUpdate: NoAction)
 
   @@map("users")
@@ -38,7 +40,7 @@ model User {
 /// Producto maestro. Stock gestionado en silos separados.
 model Product {
   id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  category        String          @db.VarChar(100)
+  category        String[]
   brand           String          @db.VarChar(100)
   model           String          @db.VarChar(100)
   description     String?         @db.Text
@@ -50,6 +52,7 @@ model Product {
   created_at      DateTime?       @default(now()) @db.Timestamp(6)
   updated_at      DateTime?       @default(now()) @updatedAt @db.Timestamp(6)
   order_items     OrderItem[]
+  sales           Sale[]
   stock_online    StockOnline?
   stock_physical  StockPhysical?
   wholesale_price WholesalePrice?
@@ -58,6 +61,24 @@ model Product {
   @@index([compatibility], map: "idx_products_compatibility")
   @@index([model], map: "idx_products_model")
   @@map("products")
+}
+
+/// Registro Histórico de Ventas Físicas en Mostrador
+model Sale {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id      String    @db.Uuid
+  user_id         String    @db.Uuid // El empleado que realizó la venta
+  quantity        Int       @default(1)
+  total_amount    Decimal   @db.Decimal(10, 2)
+  payment_method  String    @db.VarChar(50) // Efectivo, MercadoPago, etc.
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+  
+  product         Product   @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  user            User      @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([product_id], map: "idx_sales_product")
+  @@index([user_id], map: "idx_sales_user")
+  @@map("sales")
 }
 
 /// Stock disponible para el canal online (1:1 con Product).
