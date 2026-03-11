@@ -92,11 +92,23 @@ export default function BulkProductUploadModal({ isOpen, onClose }) {
         setCurrentStep(2);
         stopRequestedRef.current = false;
 
-        let successCount = previewData.filter(i => i.aiStatus === 'success').length;
+        let successCount = previewData.filter(i => i.aiStatus === 'success' || i.aiMessage.includes('Omitido')).length;
         let failCount = previewData.filter(i => i.aiStatus === 'error').length;
 
         // Update stats just in case resuming
         setProgressStats(prev => ({ ...prev, completed: successCount, failed: failCount }));
+
+        // --- NOVEDAD: Detectar duplicados precargados ---
+        let existingModelsSet = new Set();
+        try {
+            const productsRes = await axios.get("http://localhost:3001/api/products");
+            if (productsRes.data.success) {
+                const existingProducts = productsRes.data.data;
+                existingModelsSet = new Set(existingProducts.map(p => p.model.toLowerCase().trim()));
+            }
+        } catch (err) {
+            console.warn("No se pudo obtener el catálogo previo para evitar duplicados.", err);
+        }
 
         // Iteramos producto a producto (NO Promise.all, para no saturar APIs)
         for (let i = 0; i < previewData.length; i++) {
@@ -107,9 +119,17 @@ export default function BulkProductUploadModal({ isOpen, onClose }) {
 
             let item = previewData[i];
 
-            // Si ya fue exitoso, lo salteamos
+            // Si ya fue exitoso (o saltado por duplicado previo), lo salteamos
             if (item.aiStatus === 'success') {
                 continue;
+            }
+
+            // Comprobación rápida de duplicados antes de hacer nada costoso
+            if (existingModelsSet.has(item.originalModel.toLowerCase().trim())) {
+                updateItemStatus(item.id, 'success', 'Ya existe en BD. Omitido ⏭️', item.finalData);
+                successCount++;
+                setProgressStats(prev => ({ ...prev, completed: successCount, failed: failCount }));
+                continue; // Saltamos al siguiente de inmediato
             }
 
             // Actualizamos UI: 'loading'
@@ -170,7 +190,12 @@ export default function BulkProductUploadModal({ isOpen, onClose }) {
                     features: aiData.features || []
                 };
 
-                await axios.post("http://localhost:3001/api/products", payload, { headers: { Authorization: `Bearer ${token}` } });
+                const response = await axios.post("http://localhost:3001/api/products", payload, { headers: { Authorization: `Bearer ${token}` } });
+
+                // The backend API returns { success: true, data: { ...product } }
+                if (response.data && response.data.data && response.data.data.id) {
+                    payload.id = response.data.data.id;
+                }
 
                 // Todo OK
                 updateItemStatus(item.id, 'success', '¡Añadido con éxito! ✅', payload);

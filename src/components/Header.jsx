@@ -240,9 +240,18 @@ export default function Header() {
                             <li><Link href="/" className="block py-3 hover:text-primary border-b-2 border-transparent hover:border-primary transition-colors">Inicio</Link></li>
                             <li><Link href="#" className="block py-3 hover:text-primary border-b-2 border-transparent hover:border-primary transition-colors">Ofertas</Link></li>
                             <li><Link href="#" className="block py-3 hover:text-primary border-b-2 border-transparent hover:border-primary transition-colors">Nuevos Ingresos</Link></li>
-                            {(user?.role === 'Wholesaler' || isAdminOrEmployee()) && (
-                                <li><Link href="/mayorista" className="block py-3 text-secondary font-black border-b-2 border-transparent hover:border-secondary transition-colors">Mayorista</Link></li>
-                            )}
+                            <li>
+                                {user?.role === 'Wholesaler' || isAdminOrEmployee() ? (
+                                    <Link href="/mayorista" className="block py-3 text-secondary font-black border-b-2 border-transparent hover:border-secondary transition-colors">Mayorista</Link>
+                                ) : (
+                                    <Link
+                                        href="/mayorista"
+                                        className="block py-3 text-secondary font-black border-b-2 border-transparent hover:border-secondary transition-colors flex items-center gap-1"
+                                    >
+                                        Mayorista <span className="material-icons text-[14px]">lock</span>
+                                    </Link>
+                                )}
+                            </li>
                             <li><a href="https://wa.me/541112345678" target="_blank" rel="noopener noreferrer" className="block py-3 hover:text-primary border-b-2 border-transparent hover:border-primary transition-colors">Contacto</a></li>
                         </ul>
                     </div>

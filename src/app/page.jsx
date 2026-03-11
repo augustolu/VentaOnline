@@ -8,10 +8,13 @@ import { useFavoritesStore } from '@/lib/store/useFavoritesStore';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import AddProductModal from '@/components/AddProductModal';
+import EditProductModal from '@/components/EditProductModal';
 import BulkProductUploadModal from '@/components/BulkProductUploadModal';
 import StockUpdateModal from '@/components/StockUpdateModal';
 import PhysicalSaleModal from '@/components/PhysicalSaleModal';
 import DeleteProductModal from '@/components/DeleteProductModal';
+import BulkDeleteModal from '@/components/BulkDeleteModal';
+import BulkPriceEditModal from '@/components/BulkPriceEditModal';
 import { useSearchStore } from '@/lib/store/useSearchStore';
 
 export default function HomePage() {
@@ -26,7 +29,13 @@ export default function HomePage() {
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
     const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedAdminProduct, setSelectedAdminProduct] = useState(null);
+
+    // Bulk Actions State
+    const [selectedProductIds, setSelectedProductIds] = useState([]);
+    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+    const [isBulkPriceModalOpen, setIsBulkPriceModalOpen] = useState(false);
 
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
@@ -96,6 +105,19 @@ export default function HomePage() {
         setSelectedAdminProduct(product);
         setIsDeleteModalOpen(true);
     };
+
+    const openEditModal = (product) => {
+        setSelectedAdminProduct(product);
+        setIsEditModalOpen(true);
+    };
+
+    const toggleProductSelection = (id) => {
+        setSelectedProductIds(prev =>
+            prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
+        );
+    };
+
+    const clearSelection = () => setSelectedProductIds([]);
 
     const filteredProducts = products.filter(p => {
         let match = true;
@@ -179,9 +201,8 @@ export default function HomePage() {
                                 { name: "Pequeños Electrodomésticos", icon: "blender" },
                                 { name: "Accesorios de Celular", icon: "cable" },
                                 { name: "Teléfonos", icon: "smartphone" },
-                                { name: "Mayorista", icon: "store" },
                                 { name: "Ofertas", icon: "local_offer", isOffer: true }
-                            ].filter(cat => cat.name !== "Mayorista" || user?.role === 'Wholesaler' || isAdminOrEmployee()).map(cat => (
+                            ].map(cat => (
                                 <li key={cat.name}>
                                     <button onClick={() => setSelectedCategory(cat.name)} className={`w-full group flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium ${selectedCategory === cat.name ? 'bg-primary/5 border-l-4 border-primary' : 'border-l-4 border-transparent'}`}>
                                         <div className="flex items-center gap-3">
@@ -298,8 +319,22 @@ export default function HomePage() {
                                     <Link
                                         key={product.id}
                                         href={`/product/${product.id}`}
-                                        className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-all group flex flex-col hover:-translate-y-1 duration-300 block relative"
+                                        className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col hover:-translate-y-1 duration-300 block relative ${selectedProductIds.includes(product.id) ? 'border-primary ring-2 ring-primary/20' : 'border-gray-100 dark:border-gray-700'}`}
                                     >
+                                        {isAdminOrEmployee() && (
+                                            <div
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    toggleProductSelection(product.id);
+                                                }}
+                                                className={`absolute top-2 left-2 z-20 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${selectedProductIds.includes(product.id) ? 'bg-primary border-primary' : 'bg-white/50 backdrop-blur-sm border-gray-300 dark:border-gray-600 opacity-0 group-hover:opacity-100'}`}
+                                            >
+                                                {selectedProductIds.includes(product.id) && (
+                                                    <span className="material-icons text-white text-[16px]">check</span>
+                                                )}
+                                            </div>
+                                        )}
                                         <div className="relative aspect-square bg-gray-50 dark:bg-gray-900/50 flex items-center justify-center p-4">
                                             {product.image_url ? (
                                                 <img src={`http://localhost:3001${product.image_url}`} alt={product.model} className="max-h-full max-w-full object-contain mix-blend-multiply dark:mix-blend-normal group-hover:scale-105 transition-transform duration-300" />
@@ -315,7 +350,7 @@ export default function HomePage() {
                                                     e.stopPropagation();
                                                     toggleFavorite(product);
                                                 }}
-                                                className="absolute top-2 left-2 p-1.5 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur text-gray-400 hover:text-red-500 hover:bg-white dark:hover:bg-gray-700 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                                className={`absolute top-2 right-2 p-1.5 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur text-gray-400 hover:text-red-500 hover:bg-white dark:hover:bg-gray-700 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 ${isAdminOrEmployee() ? 'hidden' : ''}`}
                                                 title="Añadir a Favoritos"
                                             >
                                                 <span className="material-icons text-[18px]">
@@ -347,6 +382,13 @@ export default function HomePage() {
                                                     ) : (
                                                         <div className="flex gap-1.5 z-10">
                                                             <button
+                                                                title="Editar Producto"
+                                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); openEditModal(product); }}
+                                                                className="bg-blue-100 hover:bg-blue-600 text-blue-700 hover:text-white dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-600 dark:hover:text-white w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm"
+                                                            >
+                                                                <span className="material-icons text-sm">edit</span>
+                                                            </button>
+                                                            <button
                                                                 title="Gestión de Stock (Online / Físico)"
                                                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); openStockModal(product); }}
                                                                 className="bg-indigo-100 hover:bg-indigo-600 text-indigo-700 hover:text-white dark:bg-indigo-900/40 dark:text-indigo-300 dark:hover:bg-indigo-600 dark:hover:text-white w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm"
@@ -361,13 +403,6 @@ export default function HomePage() {
                                                                 <span className="material-icons text-sm">point_of_sale</span>
                                                             </button>
 
-                                                            <button
-                                                                title="Eliminar Producto"
-                                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); openDeleteModal(product); }}
-                                                                className="bg-red-100 hover:bg-red-600 text-red-700 hover:text-white dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-600 dark:hover:text-white w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm"
-                                                            >
-                                                                <span className="material-icons text-sm">delete_forever</span>
-                                                            </button>
                                                         </div>
                                                     )}
                                                 </div>
@@ -391,6 +426,13 @@ export default function HomePage() {
             </div>
 
             <Footer />
+
+            <EditProductModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                product={selectedAdminProduct}
+                onProductUpdated={() => fetchProducts()}
+            />
 
             <AddProductModal
                 isOpen={isAddModalOpen}
@@ -428,6 +470,65 @@ export default function HomePage() {
                 product={selectedAdminProduct}
                 onSuccess={() => fetchProducts()}
             />
+
+            {/* Bulk Action Modals */}
+            <BulkDeleteModal
+                isOpen={isBulkDeleteModalOpen}
+                onClose={() => setIsBulkDeleteModalOpen(false)}
+                selectedIds={selectedProductIds}
+                onSuccess={() => {
+                    fetchProducts();
+                    clearSelection();
+                }}
+            />
+
+            <BulkPriceEditModal
+                isOpen={isBulkPriceModalOpen}
+                onClose={() => setIsBulkPriceModalOpen(false)}
+                selectedIds={selectedProductIds}
+                onSuccess={() => {
+                    fetchProducts();
+                    clearSelection();
+                }}
+            />
+
+            {/* Floating Bulk Actions Bar */}
+            {selectedProductIds.length > 0 && (
+                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[80] animate-in slide-in-from-bottom-10 duration-300">
+                    <div className="bg-gray-900 border border-gray-800 text-white rounded-2xl px-6 py-4 shadow-2xl flex items-center gap-6 backdrop-blur-md bg-opacity-95">
+                        <div className="flex items-center gap-2 border-r border-gray-700 pr-6">
+                            <span className="bg-primary p-1.5 rounded-lg text-xs font-black min-w-[24px] text-center">{selectedProductIds.length}</span>
+                            <span className="text-sm font-bold opacity-80">Seleccionados</span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setIsBulkPriceModalOpen(true)}
+                                className="flex items-center gap-2 hover:bg-white/10 px-4 py-2 rounded-xl transition-all text-sm font-bold"
+                            >
+                                <span className="material-icons text-blue-400">monetization_on</span>
+                                Editar Precio
+                            </button>
+                            <button
+                                onClick={() => setIsBulkDeleteModalOpen(true)}
+                                className="flex items-center gap-2 hover:bg-red-500/20 px-4 py-2 rounded-xl transition-all text-sm font-bold text-red-400"
+                            >
+                                <span className="material-icons">delete</span>
+                                Eliminar
+                            </button>
+                        </div>
+
+                        <div className="border-l border-gray-700 pl-6">
+                            <button
+                                onClick={clearSelection}
+                                className="text-xs font-bold opacity-50 hover:opacity-100 transition-opacity uppercase tracking-wider"
+                            >
+                                Descartar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

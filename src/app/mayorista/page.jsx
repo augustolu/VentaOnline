@@ -1,10 +1,61 @@
 "use client";
 
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { useAuthStore } from '@/lib/store/useAuthStore';
 
 export default function MayoristaPage() {
+    const router = useRouter();
+    const { user } = useAuthStore();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [requestStatus, setRequestStatus] = useState(null); // 'success', 'error'
+    const [errorMessage, setErrorMessage] = useState('');
+
+    const handleRequest = async (e) => {
+        e.preventDefault();
+
+        if (!user) {
+            router.push('/login');
+            return;
+        }
+
+        if (user.role === 'Wholesaler' || user.role === 'Admin' || user.role === 'Employee') {
+            setRequestStatus('error');
+            setErrorMessage('Tu cuenta ya posee permisos equivalentes o superiores.');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setRequestStatus(null);
+        setErrorMessage('');
+
+        try {
+            const res = await fetch('http://localhost:3001/api/users/request-role', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user.token}`
+                }
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                setRequestStatus('success');
+            } else {
+                setRequestStatus('error');
+                setErrorMessage(data.message || 'Error del servidor.');
+            }
+        } catch (error) {
+            setRequestStatus('error');
+            setErrorMessage('Error de red al conectar con el servidor.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <div className="bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark font-body min-h-screen flex flex-col">
             <Header />
@@ -47,12 +98,36 @@ export default function MayoristaPage() {
                             </div>
                         </div>
 
-                        <Link href="/register?type=wholesaler" className="inline-block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-12 py-5 text-xl rounded-2xl font-bold hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-gray-900/40 flex items-center gap-4 w-max group/btn">
-                            <span className="material-icons text-2xl group-hover/btn:rotate-12 transition-transform">storefront</span>
-                            Solicitar Cuenta Mayorista Ahora
-                            <span className="material-icons text-xl opacity-70 group-hover/btn:translate-x-1 transition-transform">arrow_forward</span>
-                        </Link>
-                    </div>
+                        {requestStatus === 'success' ? (
+                            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 p-6 rounded-2xl flex items-start gap-4 animate-in fade-in max-w-lg">
+                                <span className="material-icons text-3xl">check_circle</span>
+                                <div>
+                                    <h4 className="font-bold text-lg mb-1">¡Solicitud Recibida!</h4>
+                                    <p className="text-sm opacity-90">Hemos registrado tu solicitud para ser Mayorista. Nuestro equipo la revisará pronto.</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={handleRequest}
+                                    disabled={isSubmitting}
+                                    className="inline-block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-12 py-5 text-xl rounded-2xl font-bold hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-gray-900/40 flex items-center justify-center gap-4 w-max group/btn disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-xl"
+                                >
+                                    {isSubmitting ? (
+                                        <span className="material-icons text-2xl animate-spin">autorenew</span>
+                                    ) : (
+                                        <span className="material-icons text-2xl group-hover/btn:rotate-12 transition-transform">storefront</span>
+                                    )}
+                                    {isSubmitting ? 'Procesando...' : 'Solicitar Cuenta Mayorista Ahora'}
+                                    {!isSubmitting && <span className="material-icons text-xl opacity-70 group-hover/btn:translate-x-1 transition-transform">arrow_forward</span>}
+                                </button>
+                                {requestStatus === 'error' && (
+                                    <p className="text-red-500 text-sm font-medium mt-2 flex items-center gap-2 max-w-md">
+                                        <span className="material-icons text-[16px]">error</span> {errorMessage}
+                                    </p>
+                                )}
+                            </div>
+                        )}                    </div>
 
                     <div className="hidden lg:block absolute right-[-100px] bottom-[-150px] opacity-10 dark:opacity-20 group-hover:scale-110 group-hover:rotate-[-5deg] transition-all duration-1000 ease-out z-0 pointer-events-none">
                         <span className="material-icons" style={{ fontSize: '600px' }}>storefront</span>

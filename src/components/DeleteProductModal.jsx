@@ -2,29 +2,32 @@ import React, { useState, useEffect } from "react";
 import { useAuthStore } from "@/lib/store/useAuthStore";
 
 export default function DeleteProductModal({ isOpen, onClose, product, onSuccess }) {
-    const { token } = useAuthStore();
+    const { token, isAdmin } = useAuthStore();
+    const isUserAdmin = isAdmin();
     const [isDeleting, setIsDeleting] = useState(false);
-    const [countdown, setCountdown] = useState(5);
+    const [countdown, setCountdown] = useState(isUserAdmin ? 0 : 5);
 
     useEffect(() => {
         let timer;
         if (isOpen && product) {
-            setCountdown(5); // Reset al abrir
-            timer = setInterval(() => {
-                setCountdown((prev) => {
-                    if (prev <= 1) {
-                        clearInterval(timer);
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
+            setCountdown(isUserAdmin ? 0 : 5); // Reset al abrir
+            if (!isUserAdmin) {
+                timer = setInterval(() => {
+                    setCountdown((prev) => {
+                        if (prev <= 1) {
+                            clearInterval(timer);
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+            }
         } else {
-            setCountdown(5); // Reset si se cierra sin borrar
+            setCountdown(isUserAdmin ? 0 : 5); // Reset si se cierra sin borrar
         }
 
         return () => clearInterval(timer);
-    }, [isOpen, product]);
+    }, [isOpen, product, isUserAdmin]);
 
     if (!isOpen || !product) return null;
 

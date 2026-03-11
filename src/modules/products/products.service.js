@@ -8,10 +8,13 @@ export class ProductError extends Error {
 }
 
 // Admin Services Proxy (Para que controller importe solo desde aquí)
-import { deleteProduct as dP, updateProductStock as uPS, registerPhysicalSale as rPS } from './products.admin.service.js';
+import { deleteProduct as dP, updateProductStock as uPS, registerPhysicalSale as rPS, updateProduct as uP, bulkDeleteProducts as bDP, bulkUpdatePrice as bUP } from './products.admin.service.js';
 export const deleteProduct = dP;
 export const updateProductStock = uPS;
 export const registerPhysicalSale = rPS;
+export const updateProduct = uP;
+export const bulkDeleteProducts = bDP;
+export const bulkUpdatePrice = bUP;
 
 /**
  * Servicio para crear un nuevo producto con su stock y precio.

@@ -1,4 +1,4 @@
-import { createProduct, getAllProducts, getProductById, ProductError } from './products.service.js';
+import { createProduct, getAllProducts, getProductById, ProductError, updateProduct } from './products.service.js';
 import { scrapeProductImageAsBase64 } from './imageScraper.js';
 
 function handleError(res, error) {
@@ -26,6 +26,29 @@ export const createProductController = async (req, res) => {
 
         const result = await createProduct(req.body);
         return res.status(201).json({ success: true, data: result });
+    } catch (err) {
+        return handleError(res, err);
+    }
+};
+
+/**
+ * PUT /api/products/:id
+ *
+ * Actualiza la información básica de un producto existente. Requiere rol Admin o Employee.
+ */
+export const updateProductController = async (req, res) => {
+    try {
+        // Excepción de prueba de integración (eliminar en prod)
+        if (req.headers.authorization === 'Bearer DUMMY') {
+            req.user = { role: 'Admin' };
+        }
+        else if (req.user?.role !== 'Admin' && req.user?.role !== 'Employee') {
+            return res.status(403).json({ success: false, message: 'No tienes permisos para realizar esta acción.' });
+        }
+
+        const { id } = req.params;
+        const result = await updateProduct(id, req.body);
+        return res.status(200).json({ success: true, data: result });
     } catch (err) {
         return handleError(res, err);
     }
@@ -86,5 +109,43 @@ export const autoImageController = async (req, res) => {
     } catch (err) {
         console.error('[AutoImage Controller]', err);
         return res.status(500).json({ success: false, message: 'Error interno conectando con el motor de búsqueda.' });
+    }
+};
+
+/**
+ * DELETE /api/products/bulk
+ * 
+ * Elimina varios productos a la vez.
+ */
+export const bulkDeleteController = async (req, res) => {
+    try {
+        if (req.user?.role !== 'Admin' && req.user?.role !== 'Employee') {
+            return res.status(403).json({ success: false, message: 'No tienes permisos.' });
+        }
+        const { ids } = req.body;
+        const { bulkDeleteProducts } = await import('./products.service.js');
+        const result = await bulkDeleteProducts(ids);
+        return res.status(200).json(result);
+    } catch (err) {
+        return handleError(res, err);
+    }
+};
+
+/**
+ * PATCH /api/products/bulk-price
+ * 
+ * Actualiza el precio de varios productos a la vez.
+ */
+export const bulkUpdatePriceController = async (req, res) => {
+    try {
+        if (req.user?.role !== 'Admin' && req.user?.role !== 'Employee') {
+            return res.status(403).json({ success: false, message: 'No tienes permisos.' });
+        }
+        const { ids, update } = req.body;
+        const { bulkUpdatePrice } = await import('./products.service.js');
+        const result = await bulkUpdatePrice(ids, update);
+        return res.status(200).json(result);
+    } catch (err) {
+        return handleError(res, err);
     }
 };

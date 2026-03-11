@@ -49,3 +49,22 @@ export function authenticate(req, res, next) {
         return res.status(401).json({ success: false, message: 'Token inválido.' });
     }
 }
+
+/**
+ * Alias para mayor legibilidad en las rutas.
+ */
+export const requireAuth = authenticate;
+
+/**
+ * Middleware para restringir acceso solo a Administradores.
+ * Debe usarse DESPUÉS de requireAuth/authenticate.
+ */
+export function requireAdmin(req, res, next) {
+    if (req.user?.role !== 'Admin') {
+        return res.status(403).json({
+            success: false,
+            message: 'Acceso denegado. Se requiere rol de Administrador.',
+        });
+    }
+    next();
+}

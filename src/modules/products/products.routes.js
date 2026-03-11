@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createProductController, getAllProductsController, getProductByIdController, autoImageController } from './products.controller.js';
+import { createProductController, getAllProductsController, getProductByIdController, autoImageController, updateProductController, bulkDeleteController, bulkUpdatePriceController } from './products.controller.js';
 import { authenticate } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
@@ -15,6 +15,9 @@ router.get('/', getAllProductsController);
 
 // GET /api/products/:id (Público)
 router.get('/:id', getProductByIdController);
+
+// PUT /api/products/:id (Protegido por JWT Admin/Employee)
+router.put('/:id', authenticate, updateProductController);
 
 // DELETE /api/products/:id (Protegido por JWT Admin/Employee)
 router.delete('/:id', authenticate, async (req, res) => {
@@ -57,5 +60,9 @@ router.post('/:id/sale', authenticate, async (req, res) => {
         res.status(err.statusCode || 500).json({ success: false, message: err.message });
     }
 });
+
+// Rutas Masivas (Bulk)
+router.post('/bulk-delete', authenticate, bulkDeleteController);
+router.patch('/bulk-price', authenticate, bulkUpdatePriceController);
 
 export default router;

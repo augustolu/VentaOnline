@@ -86,24 +86,45 @@ export default function ProductDetailPage() {
                 <div className="bg-surface-light dark:bg-surface-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-0 overflow-hidden">
 
-                        {/* Image Gallery area */}
-                        <div className="bg-gray-50 dark:bg-gray-900/50 p-8 flex items-center justify-center min-h-[400px]">
-                            {product.image_url ? (
-                                <img
-                                    src={`http://localhost:3001${product.image_url}`}
-                                    alt={product.model}
-                                    className="max-w-full max-h-[500px] object-contain mix-blend-multiply dark:mix-blend-normal hover:scale-105 transition-transform duration-500 cursor-zoom-in"
-                                />
-                            ) : (
-                                <div className="text-center text-gray-400">
-                                    <span className="material-icons text-9xl block mb-4 opacity-50">image</span>
-                                    <p>Sin imagen disponible</p>
+                        {/* Left Column: Image and Specs */}
+                        <div className="flex flex-col bg-gray-50 dark:bg-gray-900/50 border-r border-gray-100 dark:border-gray-800">
+                            {/* Image Gallery area */}
+                            <div className="p-8 flex items-center justify-center min-h-[400px]">
+                                {product.image_url ? (
+                                    <img
+                                        src={`http://localhost:3001${product.image_url}`}
+                                        alt={product.model}
+                                        className="max-w-full max-h-[500px] object-contain mix-blend-multiply dark:mix-blend-normal hover:scale-105 transition-transform duration-500 cursor-zoom-in"
+                                    />
+                                ) : (
+                                    <div className="text-center text-gray-400">
+                                        <span className="material-icons text-9xl block mb-4 opacity-50">image</span>
+                                        <p>Sin imagen disponible</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Product Specifications */}
+                            {product.features && product.features.length > 0 && (
+                                <div className="px-8 pb-8 animate-in fade-in slide-in-from-bottom-2">
+                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                        <span className="material-icons text-primary text-xl">memory</span>
+                                        Especificaciones Técnicas
+                                    </h2>
+                                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                                        {product.features.map((feature, idx) => (
+                                            <div key={idx} className={`flex flex-col sm:flex-row p-4 ${idx !== product.features.length - 1 ? 'border-b border-gray-100 dark:border-gray-700' : ''}`}>
+                                                <span className="text-xs font-bold text-gray-500 w-full sm:w-1/3 mb-1 sm:mb-0 uppercase tracking-widest">{feature.name}</span>
+                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200 flex-1">{feature.value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
 
-                        {/* Product Info area */}
-                        <div className="p-8 md:p-12 flex flex-col border-l border-gray-100 dark:border-gray-800">
+                        {/* Product Info area (Right Column) */}
+                        <div className="p-8 md:p-12 flex flex-col">
                             <div className="mb-2 flex items-center gap-2">
                                 <span className="text-xs uppercase tracking-widest font-bold text-gray-500">{product.brand}</span>
                                 {product.compatibility && (
@@ -130,27 +151,9 @@ export default function ProductDetailPage() {
                                 )}
                             </div>
 
-                            {/* Product Specifications */}
-                            {product.features && product.features.length > 0 && (
-                                <div className="mb-8 animate-in fade-in slide-in-from-bottom-2">
-                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                        <span className="material-icons text-primary text-xl">memory</span>
-                                        Especificaciones Técnicas
-                                    </h2>
-                                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-                                        {product.features.map((feature, idx) => (
-                                            <div key={idx} className={`flex flex-col sm:flex-row p-4 ${idx !== product.features.length - 1 ? 'border-b border-gray-100 dark:border-gray-700' : ''}`}>
-                                                <span className="text-xs font-bold text-gray-500 w-full sm:w-1/3 mb-1 sm:mb-0 uppercase tracking-widest">{feature.name}</span>
-                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200 flex-1">{feature.value}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
                             {/* Stock and Actions */}
-                            <div className="mt-auto pt-8 border-t border-gray-100 dark:border-gray-800">
-                                <div className="flex items-center gap-4 mb-6">
+                            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800">
+                                <div className="flex items-center gap-4 mb-4">
                                     <div className={`flex items-center gap-2 text-sm font-bold ${hasStock ? 'text-green-600' : 'text-red-500'}`}>
                                         <span className="material-icons">{hasStock ? 'check_circle' : 'cancel'}</span>
                                         {hasStock ? 'Stock Disponible' : 'Sin Stock Temporalmente'}
@@ -162,26 +165,37 @@ export default function ProductDetailPage() {
                                     )}
                                 </div>
 
-                                <div className="flex gap-4">
+                                <div className="flex flex-col gap-3">
                                     <button
                                         disabled={!hasStock}
                                         onClick={() => addToCart(product)}
-                                        className="flex-1 bg-primary hover:bg-primary-hover disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/30 transition-all flex items-center justify-center gap-2"
+                                        className="w-full bg-secondary hover:bg-secondary/90 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-black py-4 rounded-xl shadow-lg shadow-secondary/30 transition-all flex items-center justify-center gap-2 text-lg hover:-translate-y-1"
                                     >
-                                        <span className="material-icons">shopping_cart</span>
-                                        Añadir al Carrito
+                                        <span className="material-icons">bolt</span>
+                                        Comprar Ahora
                                     </button>
-                                    <button
-                                        onClick={() => toggleFavorite(product)}
-                                        className={`w-14 h-14 border-2 rounded-xl flex items-center justify-center transition-colors ${isFavorite(product.id)
-                                            ? 'border-red-500 text-red-500 bg-red-50 dark:bg-red-900/20'
-                                            : 'border-gray-200 dark:border-gray-700 text-gray-400 hover:text-red-500 hover:border-red-500'
-                                            }`}
-                                    >
-                                        <span className="material-icons">
-                                            {isFavorite(product.id) ? 'favorite' : 'favorite_border'}
-                                        </span>
-                                    </button>
+
+                                    <div className="flex gap-3">
+                                        <button
+                                            disabled={!hasStock}
+                                            onClick={() => addToCart(product)}
+                                            className="flex-1 bg-primary hover:bg-primary-hover disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5"
+                                        >
+                                            <span className="material-icons text-sm">shopping_cart</span>
+                                            Añadir al Carrito
+                                        </button>
+                                        <button
+                                            onClick={() => toggleFavorite(product)}
+                                            className={`w-[52px] h-[52px] border-2 rounded-xl flex items-center justify-center transition-colors shrink-0 hover:-translate-y-0.5 ${isFavorite(product.id)
+                                                ? 'border-red-500 text-red-500 bg-red-50 dark:bg-red-900/20'
+                                                : 'border-gray-200 dark:border-gray-700 text-gray-400 hover:text-red-500 hover:border-gray-300'
+                                                }`}
+                                        >
+                                            <span className="material-icons text-[20px]">
+                                                {isFavorite(product.id) ? 'favorite' : 'favorite_border'}
+                                            </span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
