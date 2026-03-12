@@ -6,37 +6,50 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useCartStore } from '@/lib/store/useCartStore';
 import { useFavoritesStore } from '@/lib/store/useFavoritesStore';
+import { useAuthStore } from '@/lib/store/useAuthStore';
+import EditProductModal from '@/components/EditProductModal';
+import StockUpdateModal from '@/components/StockUpdateModal';
+import PhysicalSaleModal from '@/components/PhysicalSaleModal';
+import DeleteProductModal from '@/components/DeleteProductModal';
 
 export default function ProductDetailPage() {
     const params = useParams();
     const productId = params?.id;
     const { addToCart } = useCartStore();
     const { isFavorite, toggleFavorite } = useFavoritesStore();
+    const { isAdminOrEmployee } = useAuthStore();
 
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [isMounted, setIsMounted] = useState(false);
+
+    // Management Modals State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+    const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+    const fetchProduct = async () => {
+        if (!productId) return;
+        try {
+            const res = await fetch(`http://localhost:3001/api/products/${productId}`);
+            const data = await res.json();
+            if (data.success) {
+                setProduct(data.data);
+            } else {
+                setError('Producto no encontrado');
+            }
+        } catch (err) {
+            console.error(err);
+            setError('Error de conexión con el servidor.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        if (!productId) return;
-
-        const fetchProduct = async () => {
-            try {
-                const res = await fetch(`http://localhost:3001/api/products/${productId}`);
-                const data = await res.json();
-                if (data.success) {
-                    setProduct(data.data);
-                } else {
-                    setError('Producto no encontrado');
-                }
-            } catch (err) {
-                console.error(err);
-                setError('Error de conexión con el servidor.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
+        setIsMounted(true);
         fetchProduct();
     }, [productId]);
 
@@ -67,7 +80,9 @@ export default function ProductDetailPage() {
         );
     }
 
-    const hasStock = (product.stock_online?.quantity > 0) || (product.stock_physical?.quantity > 0);
+    const hasOnlineStock = (product.stock_online?.quantity || 0) > 0;
+    const hasPhysicalStock = (product.stock_physical?.quantity || 0) > 0;
+    const hasAnyStock = hasOnlineStock || hasPhysicalStock;
 
     return (
         <div className="bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark font-body min-h-screen flex flex-col">
@@ -153,49 +168,227 @@ export default function ProductDetailPage() {
 
                             {/* Stock and Actions */}
                             <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className={`flex items-center gap-2 text-sm font-bold ${hasStock ? 'text-green-600' : 'text-red-500'}`}>
-                                        <span className="material-icons">{hasStock ? 'check_circle' : 'cancel'}</span>
-                                        {hasStock ? 'Stock Disponible' : 'Sin Stock Temporalmente'}
-                                    </div>
-                                    {hasStock && (
-                                        <div className="text-xs text-gray-500">
-                                            ({(product.stock_online?.quantity || 0) + (product.stock_physical?.quantity || 0)} unidades)
+                                <div className="flex flex-col gap-2 mb-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`flex items-center gap-2 text-sm font-bold ${hasOnlineStock ? 'text-green-600' : 'text-red-500'}`}>
+                                            <span className="material-icons text-lg">{hasOnlineStock ? 'cloud_done' : 'cloud_off'}</span>
+                                            {hasOnlineStock ? 'Stock Online Disponible' : 'Sin Stock Online'}
                                         </div>
-                                    )}
+                                        {hasOnlineStock && (
+                                            <div className="text-xs text-gray-500 font-medium bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+                                                {product.stock_online.quantity} unid.
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className={`flex items-center gap-2 text-sm font-bold ${hasPhysicalStock ? 'text-indigo-600' : 'text-gray-400'}`}>
+                                            <span className="material-icons text-lg">{hasPhysicalStock ? 'storefront' : 'no_meeting_room'}</span>
+                                            {hasPhysicalStock ? 'Disponible en Local' : 'No disponible en Local'}
+                                        </div>
+                                        {hasPhysicalStock && (
+                                            <div className="text-xs text-gray-500 font-medium bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+                                                {product.stock_physical.quantity} unid.
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="flex flex-col gap-3">
-                                    <button
-                                        disabled={!hasStock}
-                                        onClick={() => addToCart(product)}
-                                        className="w-full bg-secondary hover:bg-secondary/90 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-black py-4 rounded-xl shadow-lg shadow-secondary/30 transition-all flex items-center justify-center gap-2 text-lg hover:-translate-y-1"
-                                    >
-                                        <span className="material-icons">bolt</span>
-                                        Comprar Ahora
-                                    </button>
+                                    {!isMounted || !isAdminOrEmployee() ? (
+                                        <>
+                                            {/* Comprar Ahora — primary CTA */}
+                                            <button
+                                                disabled={(() => {
+                                                    const s = product.stock_online;
+                                                    return !((s && typeof s.quantity === 'number') ? s.quantity > 0 : (typeof s === 'number' ? s > 0 : (product.stockOnline > 0)));
+                                                })()}
+                                                onClick={() => {
+                                                    addToCart(product);
+                                                    router.push('/checkout');
+                                                }}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '16px 24px',
+                                                    border: 'none',
+                                                    borderRadius: '14px',
+                                                    background: (() => {
+                                                        const s = product.stock_online;
+                                                        const hasStock = (s && typeof s.quantity === 'number') ? s.quantity > 0 : (typeof s === 'number' ? s > 0 : (product.stockOnline > 0));
+                                                        return hasStock ? '#1D1D1F' : '#D1D1D6';
+                                                    })(),
+                                                    color: 'white',
+                                                    fontFamily: "'Space Grotesk', sans-serif",
+                                                    fontSize: '16px',
+                                                    fontWeight: 700,
+                                                    letterSpacing: '0.02em',
+                                                    cursor: (() => {
+                                                        const s = product.stock_online;
+                                                        const hasStock = (s && typeof s.quantity === 'number') ? s.quantity > 0 : (typeof s === 'number' ? s > 0 : (product.stockOnline > 0));
+                                                        return hasStock ? 'pointer' : 'not-allowed';
+                                                    })(),
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '10px',
+                                                    transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                                    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (!e.currentTarget.disabled) {
+                                                        e.currentTarget.style.background = '#FF5722';
+                                                        e.currentTarget.style.transform = 'translateY(-2px)';
+                                                        e.currentTarget.style.boxShadow = '0 8px 32px rgba(255,87,34,0.35)';
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    if (!e.currentTarget.disabled) {
+                                                        e.currentTarget.style.background = '#1D1D1F';
+                                                        e.currentTarget.style.transform = 'translateY(0)';
+                                                        e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)';
+                                                    }
+                                                }}
+                                            >
+                                                <span className="material-icons" style={{ fontSize: '20px' }}>
+                                                    {(() => {
+                                                        const s = product.stock_online;
+                                                        const hasStock = (s && typeof s.quantity === 'number') ? s.quantity > 0 : (typeof s === 'number' ? s > 0 : (product.stockOnline > 0));
+                                                        return hasStock ? 'bolt' : 'block';
+                                                    })()}
+                                                </span>
+                                                {(() => {
+                                                    const s = product.stock_online;
+                                                    const hasStock = (s && typeof s.quantity === 'number') ? s.quantity > 0 : (typeof s === 'number' ? s > 0 : (product.stockOnline > 0));
+                                                    return hasStock ? 'Comprar Ahora' : 'Sin Stock Online';
+                                                })()}
+                                            </button>
 
-                                    <div className="flex gap-3">
-                                        <button
-                                            disabled={!hasStock}
-                                            onClick={() => addToCart(product)}
-                                            className="flex-1 bg-primary hover:bg-primary-hover disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5"
-                                        >
-                                            <span className="material-icons text-sm">shopping_cart</span>
-                                            Añadir al Carrito
-                                        </button>
-                                        <button
-                                            onClick={() => toggleFavorite(product)}
-                                            className={`w-[52px] h-[52px] border-2 rounded-xl flex items-center justify-center transition-colors shrink-0 hover:-translate-y-0.5 ${isFavorite(product.id)
-                                                ? 'border-red-500 text-red-500 bg-red-50 dark:bg-red-900/20'
-                                                : 'border-gray-200 dark:border-gray-700 text-gray-400 hover:text-red-500 hover:border-gray-300'
-                                                }`}
-                                        >
-                                            <span className="material-icons text-[20px]">
-                                                {isFavorite(product.id) ? 'favorite' : 'favorite_border'}
-                                            </span>
-                                        </button>
-                                    </div>
+                                            {/* Añadir al Carrito + Favoritos */}
+                                            <div style={{ display: 'flex', gap: '12px' }}>
+                                                <button
+                                                    disabled={(() => {
+                                                        const s = product.stock_online;
+                                                        return !((s && typeof s.quantity === 'number') ? s.quantity > 0 : (typeof s === 'number' ? s > 0 : (product.stockOnline > 0)));
+                                                    })()}
+                                                    onClick={() => addToCart(product)}
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: '14px 20px',
+                                                        borderRadius: '14px',
+                                                        background: 'rgba(255,255,255,0.7)',
+                                                        backdropFilter: 'blur(16px) saturate(180%)',
+                                                        WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+                                                        border: '1px solid rgba(0,0,0,0.08)',
+                                                        color: '#1D1D1F',
+                                                        fontFamily: "'Space Grotesk', sans-serif",
+                                                        fontSize: '15px',
+                                                        fontWeight: 600,
+                                                        cursor: (() => {
+                                                            const s = product.stock_online;
+                                                            const hasStock = (s && typeof s.quantity === 'number') ? s.quantity > 0 : (typeof s === 'number' ? s > 0 : (product.stockOnline > 0));
+                                                            return hasStock ? 'pointer' : 'not-allowed';
+                                                        })(),
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '8px',
+                                                        transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!e.currentTarget.disabled) {
+                                                            e.currentTarget.style.background = 'rgba(255,255,255,0.92)';
+                                                            e.currentTarget.style.transform = 'translateY(-1px)';
+                                                            e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)';
+                                                            e.currentTarget.style.borderColor = 'rgba(0,0,0,0.15)';
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!e.currentTarget.disabled) {
+                                                            e.currentTarget.style.background = 'rgba(255,255,255,0.7)';
+                                                            e.currentTarget.style.transform = 'translateY(0)';
+                                                            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)';
+                                                            e.currentTarget.style.borderColor = 'rgba(0,0,0,0.08)';
+                                                        }
+                                                    }}
+                                                >
+                                                    <span className="material-icons" style={{ fontSize: '18px' }}>
+                                                        {(() => {
+                                                            const s = product.stock_online;
+                                                            const hasStock = (s && typeof s.quantity === 'number') ? s.quantity > 0 : (typeof s === 'number' ? s > 0 : (product.stockOnline > 0));
+                                                            return hasStock ? 'shopping_cart' : 'block';
+                                                        })()}
+                                                    </span>
+                                                    Añadir al Carrito
+                                                </button>
+                                                <button
+                                                    onClick={() => toggleFavorite(product)}
+                                                    style={{
+                                                        width: '54px',
+                                                        height: '54px',
+                                                        borderRadius: '14px',
+                                                        background: isFavorite(product.id)
+                                                            ? 'rgba(255,59,48,0.06)'
+                                                            : 'rgba(255,255,255,0.7)',
+                                                        backdropFilter: 'blur(16px) saturate(180%)',
+                                                        WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+                                                        border: isFavorite(product.id)
+                                                            ? '1.5px solid rgba(255,59,48,0.3)'
+                                                            : '1px solid rgba(0,0,0,0.08)',
+                                                        color: isFavorite(product.id) ? '#FF3B30' : '#AEAEB2',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                                        flexShrink: 0,
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.transform = 'translateY(-1px) scale(1.05)';
+                                                        if (!isFavorite(product.id)) e.currentTarget.style.color = '#FF3B30';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                                                        if (!isFavorite(product.id)) e.currentTarget.style.color = '#AEAEB2';
+                                                    }}
+                                                >
+                                                    <span className="material-icons" style={{ fontSize: '22px' }}>
+                                                        {isFavorite(product.id) ? 'favorite' : 'favorite_border'}
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button
+                                                onClick={() => setIsEditModalOpen(true)}
+                                                className="flex items-center justify-center gap-2 bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-600 dark:hover:bg-blue-600 text-blue-700 dark:text-blue-300 hover:text-white py-4 rounded-xl font-bold transition-all shadow-sm"
+                                            >
+                                                <span className="material-icons">edit</span>
+                                                Editar
+                                            </button>
+                                            <button
+                                                onClick={() => setIsStockModalOpen(true)}
+                                                className="flex items-center justify-center gap-2 bg-indigo-100 dark:bg-indigo-900/40 hover:bg-indigo-600 dark:hover:bg-indigo-600 text-indigo-700 dark:text-indigo-300 hover:text-white py-4 rounded-xl font-bold transition-all shadow-sm"
+                                            >
+                                                <span className="material-icons">inventory</span>
+                                                Stock
+                                            </button>
+                                            <button
+                                                onClick={() => setIsSaleModalOpen(true)}
+                                                className="flex items-center justify-center gap-2 bg-emerald-100 dark:bg-emerald-900/40 hover:bg-emerald-600 dark:hover:bg-emerald-600 text-emerald-700 dark:text-emerald-300 hover:text-white py-4 rounded-xl font-bold transition-all shadow-sm"
+                                            >
+                                                <span className="material-icons">point_of_sale</span>
+                                                Venta Física
+                                            </button>
+                                            <button
+                                                onClick={() => setIsDeleteModalOpen(true)}
+                                                className="flex items-center justify-center gap-2 bg-red-100 dark:bg-red-900/40 hover:bg-red-600 dark:hover:bg-red-600 text-red-700 dark:text-red-300 hover:text-white py-4 rounded-xl font-bold transition-all shadow-sm"
+                                            >
+                                                <span className="material-icons">delete_forever</span>
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -204,6 +397,37 @@ export default function ProductDetailPage() {
             </main>
 
             <Footer />
+
+            <EditProductModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                product={product}
+                onProductUpdated={() => fetchProduct()}
+            />
+
+            <StockUpdateModal
+                isOpen={isStockModalOpen}
+                onClose={() => setIsStockModalOpen(false)}
+                product={product}
+                onSuccess={() => fetchProduct()}
+            />
+
+            <PhysicalSaleModal
+                isOpen={isSaleModalOpen}
+                onClose={() => setIsSaleModalOpen(false)}
+                product={product}
+                onSuccess={() => fetchProduct()}
+            />
+
+            <DeleteProductModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                product={product}
+                onSuccess={() => {
+                    // Navigate to root after successful deletion
+                    window.location.href = '/';
+                }}
+            />
         </div>
     );
 }

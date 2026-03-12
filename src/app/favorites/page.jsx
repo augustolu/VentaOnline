@@ -9,6 +9,21 @@ import Footer from '@/components/Footer';
 export default function FavoritesPage() {
     const { items: favorites, toggleFavorite, isFavorite, clearFavorites } = useFavoritesStore();
     const { addToCart } = useCartStore();
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    if (!isMounted) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen font-body flex flex-col">
+                <Header />
+                <main className="flex-1"></main>
+                <Footer />
+            </div>
+        );
+    }
 
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen text-text-light dark:text-text-dark font-body flex flex-col transition-colors duration-200">
@@ -68,9 +83,15 @@ export default function FavoritesPage() {
                                     ) : (
                                         <span className="material-icons text-gray-300 dark:text-gray-600 text-6xl">image_not_supported</span>
                                     )}
-                                    {product.stock_online === 0 && product.stock_physical === 0 && (
-                                        <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded">Sin Stock</span>
-                                    )}
+                                    {(() => {
+                                        const s = product.stock_online;
+                                        const qO = (s && typeof s.quantity === 'number') ? s.quantity : (typeof s === 'number' ? s : (product.stockOnline || 0));
+                                        const qP = (product.stock_physical?.quantity || product.stock_physical || 0);
+                                        if (qO === 0 && (typeof qP === 'number' ? qP : qP.quantity) === 0) {
+                                            return <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded">Sin Stock</span>;
+                                        }
+                                        return null;
+                                    })()}
                                 </div>
 
                                 <button
@@ -92,15 +113,36 @@ export default function FavoritesPage() {
                                         <div className="flex items-end justify-between">
                                             <span className="text-lg sm:text-xl font-black text-primary">${Number(product.price).toLocaleString('es-AR')}</span>
                                             <button
+                                                disabled={(() => {
+                                                    const s = product.stock_online;
+                                                    const q = (s && typeof s.quantity === 'number') ? s.quantity : (typeof s === 'number' ? s : (product.stockOnline || 0));
+                                                    return q <= 0;
+                                                })()}
                                                 onClick={(e) => {
                                                     e.preventDefault();
                                                     e.stopPropagation();
                                                     addToCart(product);
                                                 }}
-                                                className="bg-gray-100 hover:bg-primary hover:text-white dark:bg-gray-700 dark:hover:bg-primary text-gray-800 dark:text-white w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all shadow-sm focus:outline-none hover:scale-110"
-                                                title="Añadir al carrito"
+                                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all shadow-sm focus:outline-none ${(() => {
+                                                    const s = product.stock_online;
+                                                    const q = (s && typeof s.quantity === 'number') ? s.quantity : (typeof s === 'number' ? s : (product.stockOnline || 0));
+                                                    return q <= 0
+                                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                                                        : 'bg-gray-100 hover:bg-primary hover:text-white dark:bg-gray-700 dark:hover:bg-primary text-gray-800 dark:text-white'
+                                                })()} hover:scale-110`}
+                                                title={(() => {
+                                                    const s = product.stock_online;
+                                                    const q = (s && typeof s.quantity === 'number') ? s.quantity : (typeof s === 'number' ? s : (product.stockOnline || 0));
+                                                    return q <= 0 ? "Sin stock online" : "Añadir al carrito";
+                                                })()}
                                             >
-                                                <span className="material-icons text-sm sm:text-base">add_shopping_cart</span>
+                                                <span className="material-icons text-sm sm:text-base">
+                                                    {(() => {
+                                                        const s = product.stock_online;
+                                                        const q = (s && typeof s.quantity === 'number') ? s.quantity : (typeof s === 'number' ? s : (product.stockOnline || 0));
+                                                        return q <= 0 ? 'block' : 'add_shopping_cart';
+                                                    })()}
+                                                </span>
                                             </button>
                                         </div>
                                     </div>

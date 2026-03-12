@@ -1,5 +1,9 @@
 /** @type {import('tailwindcss').Config} */
-const config = {
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const config = require('./src/config/tenantConfig.json');
+
+const tw = {
     darkMode: "class",
     content: [
         './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -9,20 +13,21 @@ const config = {
     theme: {
         extend: {
             colors: {
-                // Neutral monochrome palette as requested
-                primary: "#4b5563", // Gray 600
-                "primary-hover": "#374151", // Gray 700
-                secondary: "#6b7280", // Gray 500
-                "background-light": "#ffffff",
-                "background-dark": "#f3f4f6", // Off-white for dark mode replacement to keep it neutral/bright
-                "surface-light": "#f9fafb", // Gray 50
-                "surface-dark": "#e5e7eb", // Gray 200
-                "text-light": "#111827", // Gray 900
-                "text-dark": "#1f2937", // Gray 800
+                // All colors now reference CSS custom properties
+                // sourced from tenantConfig.json via :root variables.
+                primary: "var(--color-primary)",
+                "primary-hover": "var(--color-primary-hover)",
+                secondary: "var(--color-secondary)",
+                "background-light": "var(--color-bg-light)",
+                "background-dark": "var(--color-bg-dark)",
+                "surface-light": "var(--color-surface-light)",
+                "surface-dark": "var(--color-surface-dark)",
+                "text-light": "var(--color-text-light)",
+                "text-dark": "var(--color-text-dark)",
             },
             fontFamily: {
-                display: ["Roboto", "sans-serif"],
-                body: ["Roboto", "sans-serif"],
+                display: [config.fonts.display, "sans-serif"],
+                body: [config.fonts.body, "sans-serif"],
             },
             borderRadius: {
                 DEFAULT: "0.5rem",
@@ -35,4 +40,4 @@ const config = {
     ],
 };
 
-export default config;
+export default tw;

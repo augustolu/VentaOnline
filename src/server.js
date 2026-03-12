@@ -10,6 +10,7 @@ import productRoutes from './modules/products/products.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import uploadRoutes from './modules/upload/upload.routes.js';
 import aiRoutes from './modules/ai/ai.routes.js';
+import ordersRoutes from './modules/orders/orders.routes.js';
 
 const app = express();
 // Usa API_PORT para no colisionar con Next.js que ocupa PORT=3000
@@ -37,6 +38,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/orders', ordersRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

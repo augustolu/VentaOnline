@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * ============================================================
+ * CSS Custom Properties — Driven by src/config/tenantConfig.json
+ * 
+ * To re-skin the entire app, edit tenantConfig.json and these
+ * values will be the defaults. The layout also injects them
+ * inline so SSR picks them up immediately.
+ * ============================================================
+ */
+:root {
+  --color-primary: #4b5563;
+  --color-primary-hover: #374151;
+  --color-secondary: #6b7280;
+  --color-bg-light: #ffffff;
+  --color-bg-dark: #f3f4f6;
+  --color-surface-light: #f9fafb;
+  --color-surface-dark: #e5e7eb;
+  --color-text-light: #111827;
+  --color-text-dark: #1f2937;
+}
+
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar {
     width: 8px;

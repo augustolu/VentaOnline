@@ -1,16 +1,39 @@
 import './globals.css';
+import config from '@/config/tenantConfig.json';
 
 export const metadata = {
-    title: 'La Clínica del Celular Home V1',
-    description: 'Plantilla de E-Commerce.',
+    title: config.metadata.title,
+    description: config.metadata.description,
 };
+
+/**
+ * Generates inline CSS variable declarations from the tenant theme config.
+ * Injected as an inline <style> tag so SSR picks up the correct colors
+ * before the external CSS loads.
+ */
+function buildThemeStyleString() {
+    const t = config.theme;
+    return `:root {
+  --color-primary: ${t.primary};
+  --color-primary-hover: ${t.primaryHover};
+  --color-secondary: ${t.secondary};
+  --color-bg-light: ${t.backgroundLight};
+  --color-bg-dark: ${t.backgroundDark};
+  --color-surface-light: ${t.surfaceLight};
+  --color-surface-dark: ${t.surfaceDark};
+  --color-text-light: ${t.textLight};
+  --color-text-dark: ${t.textDark};
+}`;
+}
 
 export default function RootLayout({ children }) {
     return (
-        <html lang="es" suppressHydrationWarning>
+        <html lang={config.metadata.lang} suppressHydrationWarning>
             <head>
-                <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
+                <link href={config.fonts.googleFontsUrl} rel="stylesheet" />
+                <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
                 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+                <style dangerouslySetInnerHTML={{ __html: buildThemeStyleString() }} />
                 <script
                     dangerouslySetInnerHTML={{
                         __html: `
@@ -19,8 +42,7 @@ export default function RootLayout({ children }) {
                                 const isWindows = navigator.userAgent.includes('Windows');
                                 const dpr = window.devicePixelRatio;
                                 if (isWindows && dpr > 1.2) {
-                                    /* Si la escala es del 150% (dpr=1.5), limitamos el impacto */
-                                    const scaleFactor = 1.15; // Queremos que se vea max 115% de grande aprox
+                                    const scaleFactor = 1.15;
                                     const zoomLevel = scaleFactor / dpr; 
                                     document.documentElement.style.zoom = zoomLevel;
                                 }

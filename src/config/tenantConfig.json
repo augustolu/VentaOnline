@@ -1,0 +1,46 @@
+{
+    "brand": {
+        "name": "Tu Tienda",
+        "slogan": "Calidad y garantía asegurada.",
+        "logoLight": "/logo-light.png",
+        "logoDark": "/logo-dark.png",
+        "favicon": "/favicon.ico",
+        "contact": {
+            "phone": "+54 11 1234 5678",
+            "email": "contacto@mitienda.com",
+            "whatsapp": "541112345678"
+        }
+    },
+    "theme": {
+        "primary": "#4b5563",
+        "primaryHover": "#374151",
+        "secondary": "#6b7280",
+        "backgroundLight": "#ffffff",
+        "backgroundDark": "#f3f4f6",
+        "surfaceLight": "#f9fafb",
+        "surfaceDark": "#e5e7eb",
+        "textLight": "#111827",
+        "textDark": "#1f2937"
+    },
+    "fonts": {
+        "display": "Roboto",
+        "body": "Roboto",
+        "googleFontsUrl": "https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap"
+    },
+    "features": {
+        "hasAIFeatures": true,
+        "hasOrderManagement": true,
+        "hasWholesale": true,
+        "hasFavorites": true,
+        "hasPhysicalSales": true
+    },
+    "metadata": {
+        "title": "Tu Tienda — E-Commerce",
+        "description": "Plantilla de E-Commerce modular y configurable.",
+        "lang": "es"
+    },
+    "checkout": {
+        "discountThreshold": 1000000,
+        "discountPct": 5
+    }
+}

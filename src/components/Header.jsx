@@ -1,19 +1,47 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store/useAuthStore';
 import { useCartStore } from '@/lib/store/useCartStore';
 import { useFavoritesStore } from '@/lib/store/useFavoritesStore';
 import { useSearchStore } from '@/lib/store/useSearchStore';
+import {
+    ShoppingBag,
+    X,
+    Plus,
+    Minus,
+    ChevronDown,
+    ArrowRight,
+    Sparkles,
+    Package,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+const DISCOUNT_THRESHOLD = 1_000_000;
+const DISCOUNT_PCT = 5;
+
+function getStock(product) {
+    if (!product) return 0;
+    if (product.stock_online && typeof product.stock_online.quantity === 'number')
+        return product.stock_online.quantity;
+    if (typeof product.stock_online === 'number') return product.stock_online;
+    if (typeof product.stockOnline === 'number') return product.stockOnline;
+    return 0;
+}
 
 export default function Header() {
     const { isAdminOrEmployee, user, logout } = useAuthStore();
-    const { items, getTotalItems, getTotalPrice, decreaseQuantity } = useCartStore();
+    const {
+        items, getTotalItems, getTotalPrice,
+        increaseQuantity, decreaseQuantity, removeFromCart, clearCart,
+    } = useCartStore();
     const { getTotalFavorites } = useFavoritesStore();
     const { searchQuery, setSearchQuery } = useSearchStore();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isCartOpen, setIsCartOpen] = useState(false);
+
+    const router = useRouter();
 
     // Hydration mismatch fix
     const [isMounted, setIsMounted] = useState(false);
@@ -21,9 +49,29 @@ export default function Header() {
         setIsMounted(true);
     }, []);
 
+    // Lock body scroll when drawer is open
+    useEffect(() => {
+        if (isCartOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [isCartOpen]);
+
     const cartItemsCount = getTotalItems();
     const cartTotal = getTotalPrice();
     const favoritesCount = getTotalFavorites();
+
+    // Discount progress (5% off at $1M)
+    const progressPct = useMemo(
+        () => Math.min((cartTotal / DISCOUNT_THRESHOLD) * 100, 100),
+        [cartTotal],
+    );
+    const hasDiscount = cartTotal >= DISCOUNT_THRESHOLD;
+    const remaining = DISCOUNT_THRESHOLD - cartTotal;
+    const discountAmount = hasDiscount ? cartTotal * (DISCOUNT_PCT / 100) : 0;
+    const total = cartTotal - discountAmount;
 
     return (
         <>
@@ -141,91 +189,521 @@ export default function Header() {
                                         </span>
                                     )}
                                 </Link>
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setIsCartOpen(!isCartOpen)}
-                                        className="relative hover:text-primary transition-colors flex items-center gap-2 focus:outline-none"
-                                    >
-                                        <div className="relative">
-                                            <span className="material-icons text-3xl">shopping_cart</span>
-                                            {cartItemsCount > 0 && (
-                                                <span className="absolute -top-1 -right-1 bg-secondary text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                                                    {cartItemsCount}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="hidden lg:flex flex-col text-xs items-start">
-                                            <span className="text-gray-400">Total</span>
-                                            <span className="font-bold text-gray-800 dark:text-white leading-none">
-                                                ${Number(cartTotal).toLocaleString('es-AR')}
+                                {/* ── Cart Button ─────────────────────── */}
+                                <button
+                                    onClick={() => setIsCartOpen(true)}
+                                    className="relative hover:text-primary transition-colors flex items-center gap-2 focus:outline-none"
+                                >
+                                    <div className="relative">
+                                        <span className="material-icons text-3xl">shopping_cart</span>
+                                        {cartItemsCount > 0 && (
+                                            <span className="absolute -top-1 -right-1 bg-secondary text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                                                {cartItemsCount}
                                             </span>
-                                        </div>
-                                        <span className={`material-icons text-sm transition-transform ${isCartOpen ? 'rotate-180' : ''}`}>expand_more</span>
-                                    </button>
+                                        )}
+                                    </div>
+                                    <div className="hidden lg:flex flex-col text-xs items-start">
+                                        <span className="text-gray-400">Total</span>
+                                        <span className="font-bold text-gray-800 dark:text-white leading-none">
+                                            ${Number(cartTotal).toLocaleString('es-AR')}
+                                        </span>
+                                    </div>
+                                </button>
 
-                                    {isCartOpen && (
+                                {/* ── Glassmorphism Cart Drawer ────────── */}
+                                {/* Backdrop */}
+                                <div
+                                    className="fixed inset-0 z-50 transition-all duration-300"
+                                    style={{
+                                        pointerEvents: isCartOpen ? 'auto' : 'none',
+                                        background: isCartOpen ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0)',
+                                        backdropFilter: isCartOpen ? 'blur(4px)' : 'blur(0px)',
+                                        WebkitBackdropFilter: isCartOpen ? 'blur(4px)' : 'blur(0px)',
+                                    }}
+                                    onClick={() => setIsCartOpen(false)}
+                                />
+
+                                {/* Drawer Panel */}
+                                <div
+                                    className="fixed top-0 right-0 h-full z-50 flex flex-col transition-transform duration-350 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
+                                    style={{
+                                        width: '440px',
+                                        maxWidth: '100vw',
+                                        transform: isCartOpen ? 'translateX(0)' : 'translateX(100%)',
+                                        background: 'rgba(255,255,255,0.82)',
+                                        backdropFilter: 'blur(24px) saturate(180%)',
+                                        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+                                        borderLeft: '1px solid rgba(0,0,0,0.06)',
+                                        boxShadow: isCartOpen ? '-8px 0 40px rgba(0,0,0,0.08)' : 'none',
+                                        fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, sans-serif",
+                                    }}
+                                >
+                                    {/* ── Drawer Header ── */}
+                                    <div style={{
+                                        padding: '20px 24px',
+                                        borderBottom: '1px solid rgba(0,0,0,0.06)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        flexShrink: 0,
+                                    }}>
+                                        <h3 style={{
+                                            fontFamily: "'Space Grotesk', sans-serif",
+                                            fontSize: '18px',
+                                            fontWeight: 700,
+                                            color: '#1D1D1F',
+                                            margin: 0,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                        }}>
+                                            Carrito de compras
+                                            {cartItemsCount > 0 && (
+                                                <span style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    minWidth: '24px',
+                                                    height: '24px',
+                                                    padding: '0 7px',
+                                                    borderRadius: '999px',
+                                                    background: '#FF5722',
+                                                    color: 'white',
+                                                    fontSize: '12px',
+                                                    fontWeight: 600,
+                                                    fontFamily: "'Space Grotesk', sans-serif",
+                                                }}>{cartItemsCount}</span>
+                                            )}
+                                        </h3>
+                                        <button
+                                            onClick={() => setIsCartOpen(false)}
+                                            style={{
+                                                width: '32px',
+                                                height: '32px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                border: 'none',
+                                                borderRadius: '50%',
+                                                background: 'rgba(0,0,0,0.04)',
+                                                cursor: 'pointer',
+                                                color: '#86868B',
+                                                transition: 'all 0.2s',
+                                            }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.08)'; e.currentTarget.style.color = '#1D1D1F'; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; e.currentTarget.style.color = '#86868B'; }}
+                                        >
+                                            <X size={18} strokeWidth={2} />
+                                        </button>
+                                    </div>
+
+                                    {/* ── Empty State ── */}
+                                    {items.length === 0 ? (
+                                        <div style={{
+                                            flex: 1,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '40px 24px',
+                                            textAlign: 'center',
+                                        }}>
+                                            <div style={{
+                                                width: '100px',
+                                                height: '100px',
+                                                borderRadius: '50%',
+                                                background: 'rgba(255,255,255,0.9)',
+                                                border: '1px solid rgba(0,0,0,0.06)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                marginBottom: '20px',
+                                                boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+                                            }}>
+                                                <ShoppingBag size={40} strokeWidth={1.2} color="#AEAEB2" />
+                                            </div>
+                                            <p style={{
+                                                fontFamily: "'Space Grotesk', sans-serif",
+                                                fontSize: '18px',
+                                                fontWeight: 700,
+                                                color: '#1D1D1F',
+                                                margin: '0 0 8px',
+                                            }}>Tu carrito está vacío</p>
+                                            <p style={{
+                                                fontSize: '14px',
+                                                color: '#86868B',
+                                                margin: '0 0 24px',
+                                                lineHeight: 1.5,
+                                                maxWidth: '260px',
+                                            }}>Explorá nuestros productos y encontrá lo que necesitás.</p>
+                                            <Link
+                                                href="/"
+                                                onClick={() => setIsCartOpen(false)}
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    padding: '12px 28px',
+                                                    borderRadius: '12px',
+                                                    background: '#1D1D1F',
+                                                    color: 'white',
+                                                    fontFamily: "'Space Grotesk', sans-serif",
+                                                    fontSize: '14px',
+                                                    fontWeight: 600,
+                                                    textDecoration: 'none',
+                                                    transition: 'all 0.25s',
+                                                }}
+                                                onMouseEnter={(e) => { e.currentTarget.style.background = '#FF5722'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(255,87,34,0.3)'; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.background = '#1D1D1F'; e.currentTarget.style.boxShadow = 'none'; }}
+                                            >
+                                                Volver a la Tienda
+                                                <ArrowRight size={14} strokeWidth={2} />
+                                            </Link>
+                                        </div>
+                                    ) : (
                                         <>
-                                            <div className="fixed inset-0 z-40" onClick={() => setIsCartOpen(false)}></div>
-                                            <div className="absolute right-0 top-full mt-3 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 flex flex-col">
-                                                <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
-                                                    <h3 className="font-bold text-gray-800 dark:text-gray-200">Mi Carrito ({cartItemsCount})</h3>
-                                                    <button onClick={() => setIsCartOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                                                        <span className="material-icons text-sm">close</span>
+                                            {/* ── Items List (scrollable) ── */}
+                                            <div style={{
+                                                flex: 1,
+                                                overflowY: 'auto',
+                                                padding: '0',
+                                            }}>
+                                                {/* Clear cart row */}
+                                                <div style={{
+                                                    padding: '10px 24px',
+                                                    display: 'flex',
+                                                    justifyContent: 'flex-end',
+                                                }}>
+                                                    <button
+                                                        onClick={clearCart}
+                                                        style={{
+                                                            fontSize: '12px',
+                                                            fontWeight: 500,
+                                                            color: '#86868B',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            padding: '4px 8px',
+                                                            borderRadius: '6px',
+                                                            transition: 'all 0.2s',
+                                                        }}
+                                                        onMouseEnter={(e) => { e.currentTarget.style.color = '#FF3B30'; e.currentTarget.style.background = 'rgba(255,59,48,0.06)'; }}
+                                                        onMouseLeave={(e) => { e.currentTarget.style.color = '#86868B'; e.currentTarget.style.background = 'none'; }}
+                                                    >
+                                                        Vaciar carrito
                                                     </button>
                                                 </div>
 
-                                                {items.length === 0 ? (
-                                                    <div className="p-8 text-center flex flex-col items-center">
-                                                        <span className="material-icons text-4xl text-gray-300 dark:text-gray-600 mb-2">remove_shopping_cart</span>
-                                                        <p className="text-gray-500 text-sm">Tu carrito está vacío</p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="max-h-[320px] overflow-y-auto p-4 space-y-4">
-                                                        {items.map((item) => (
-                                                            <div key={item.product.id} className="flex gap-4 items-center group">
-                                                                <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-lg p-2 flex shrink-0">
-                                                                    {item.product.image_url ? (
-                                                                        <img src={`http://localhost:3001${item.product.image_url}`} alt={item.product.model} className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal" />
-                                                                    ) : (
-                                                                        <span className="material-icons text-gray-400 m-auto">image</span>
-                                                                    )}
+                                                {items.map((item) => {
+                                                    const stock = getStock(item.product);
+                                                    const isLowStock = stock > 0 && stock <= 3;
+                                                    const atMaxStock = item.quantity >= stock;
+                                                    const lineTotal = (Number(item.product.price) || 0) * item.quantity;
+
+                                                    return (
+                                                        <div
+                                                            key={item.product.id}
+                                                            className="group"
+                                                            style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '14px',
+                                                                padding: '14px 24px',
+                                                                borderBottom: '1px solid rgba(0,0,0,0.04)',
+                                                                transition: 'background 0.2s',
+                                                            }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.5)'}
+                                                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                        >
+                                                            {/* Image */}
+                                                            <div style={{
+                                                                width: '68px',
+                                                                height: '68px',
+                                                                borderRadius: '10px',
+                                                                background: '#F2F2F7',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                overflow: 'hidden',
+                                                                flexShrink: 0,
+                                                            }}>
+                                                                {item.product.image_url ? (
+                                                                    <img
+                                                                        src={`http://localhost:3001${item.product.image_url}`}
+                                                                        alt={item.product.model}
+                                                                        style={{ width: '100%', height: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }}
+                                                                    />
+                                                                ) : (
+                                                                    <Package size={24} strokeWidth={1.2} color="#AEAEB2" />
+                                                                )}
+                                                            </div>
+
+                                                            {/* Details */}
+                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                <Link href={`/product/${item.product.id}`} onClick={() => setIsCartOpen(false)}>
+                                                                    <p style={{
+                                                                        fontFamily: "'Space Grotesk', sans-serif",
+                                                                        fontSize: '14px',
+                                                                        fontWeight: 600,
+                                                                        color: '#1D1D1F',
+                                                                        margin: '0 0 2px',
+                                                                        overflow: 'hidden',
+                                                                        textOverflow: 'ellipsis',
+                                                                        whiteSpace: 'nowrap',
+                                                                    }}>{item.product.model || item.product.name}</p>
+                                                                </Link>
+                                                                <p style={{ fontSize: '12px', color: '#86868B', margin: '0 0 6px' }}>
+                                                                    {item.product.brand}
+                                                                </p>
+
+                                                                {isLowStock && (
+                                                                    <p style={{
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 500,
+                                                                        color: '#FF3B30',
+                                                                        margin: '0 0 6px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '4px',
+                                                                    }}>
+                                                                        <span style={{
+                                                                            width: '5px', height: '5px',
+                                                                            borderRadius: '50%', background: '#FF3B30',
+                                                                            display: 'inline-block',
+                                                                        }} />
+                                                                        {stock === 0 ? 'Sin stock' : `Quedan solo ${stock}`}
+                                                                    </p>
+                                                                )}
+
+                                                                {/* Quantity Stepper */}
+                                                                <div style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    border: '1px solid rgba(0,0,0,0.1)',
+                                                                    borderRadius: '8px',
+                                                                    overflow: 'hidden',
+                                                                    height: '30px',
+                                                                    background: 'white',
+                                                                }}>
+                                                                    <button
+                                                                        onClick={() => decreaseQuantity(item.product.id)}
+                                                                        style={{
+                                                                            width: '30px', height: '100%',
+                                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                            background: 'none', border: 'none', cursor: 'pointer',
+                                                                            color: '#1D1D1F', transition: 'background 0.15s',
+                                                                        }}
+                                                                        onMouseEnter={(e) => e.currentTarget.style.background = '#F2F2F7'}
+                                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                                                    >
+                                                                        <Minus size={12} strokeWidth={2} />
+                                                                    </button>
+                                                                    <span style={{
+                                                                        width: '32px', textAlign: 'center',
+                                                                        fontFamily: "'Space Grotesk', sans-serif",
+                                                                        fontSize: '13px', fontWeight: 600,
+                                                                        color: '#1D1D1F',
+                                                                        borderLeft: '1px solid rgba(0,0,0,0.06)',
+                                                                        borderRight: '1px solid rgba(0,0,0,0.06)',
+                                                                        lineHeight: '30px',
+                                                                        userSelect: 'none',
+                                                                    }}>{item.quantity}</span>
+                                                                    <button
+                                                                        onClick={() => increaseQuantity(item.product.id)}
+                                                                        disabled={atMaxStock}
+                                                                        style={{
+                                                                            width: '30px', height: '100%',
+                                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                            background: 'none', border: 'none', cursor: atMaxStock ? 'not-allowed' : 'pointer',
+                                                                            color: atMaxStock ? '#AEAEB2' : '#1D1D1F', transition: 'background 0.15s',
+                                                                        }}
+                                                                        onMouseEnter={(e) => { if (!atMaxStock) e.currentTarget.style.background = '#F2F2F7'; }}
+                                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                                                    >
+                                                                        <Plus size={12} strokeWidth={2} />
+                                                                    </button>
                                                                 </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <Link href={`/product/${item.product.id}`} onClick={() => setIsCartOpen(false)}>
-                                                                        <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate hover:text-primary transition-colors">{item.product.model}</h4>
-                                                                    </Link>
-                                                                    <p className="text-xs text-gray-500">{item.product.brand}</p>
-                                                                    <div className="flex items-center justify-between mt-1">
-                                                                        <span className="text-sm font-black text-primary">${Number(item.product.price).toLocaleString('es-AR')}</span>
-                                                                        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg px-2 py-0.5">
-                                                                            <span className="text-xs font-bold text-gray-600 dark:text-gray-300">x{item.quantity}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
+                                                            </div>
+
+                                                            {/* Price + Delete */}
+                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
+                                                                <span style={{
+                                                                    fontFamily: "'Space Grotesk', sans-serif",
+                                                                    fontSize: '14px',
+                                                                    fontWeight: 700,
+                                                                    color: '#1D1D1F',
+                                                                    whiteSpace: 'nowrap',
+                                                                }}>
+                                                                    ${lineTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                                </span>
                                                                 <button
-                                                                    onClick={() => decreaseQuantity(item.product.id)}
-                                                                    className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0"
-                                                                    title="Disminuir Cantidad"
+                                                                    onClick={() => removeFromCart(item.product.id)}
+                                                                    className="opacity-0 group-hover:opacity-100"
+                                                                    style={{
+                                                                        width: '26px', height: '26px',
+                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                        borderRadius: '50%', background: 'none', border: 'none',
+                                                                        cursor: 'pointer', color: '#AEAEB2', transition: 'all 0.15s',
+                                                                    }}
+                                                                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,59,48,0.08)'; e.currentTarget.style.color = '#FF3B30'; }}
+                                                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#AEAEB2'; }}
+                                                                    title="Eliminar"
                                                                 >
-                                                                    <span className="material-icons text-sm">remove_circle_outline</span>
+                                                                    <X size={14} strokeWidth={1.5} />
                                                                 </button>
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {items.length > 0 && (
-                                                    <div className="p-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700">
-                                                        <div className="flex justify-between items-center mb-4">
-                                                            <span className="text-gray-600 dark:text-gray-300 font-bold">Total:</span>
-                                                            <span className="text-xl font-black text-primary">${Number(cartTotal).toLocaleString('es-AR')}</span>
                                                         </div>
-                                                        <button className="w-full bg-primary hover:bg-primary-hover text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm shadow-primary/30 flex items-center justify-center gap-2">
-                                                            Ir a Pagar
-                                                            <span className="material-icons text-sm">arrow_forward</span>
-                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* ── Footer (Summary) ── */}
+                                            <div style={{
+                                                flexShrink: 0,
+                                                borderTop: '1px solid rgba(0,0,0,0.06)',
+                                                padding: '18px 24px 24px',
+                                                background: 'rgba(255,255,255,0.6)',
+                                            }}>
+                                                {/* Discount progress */}
+                                                <div style={{ marginBottom: '16px' }}>
+                                                    {hasDiscount ? (
+                                                        <div style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '6px',
+                                                            padding: '5px 12px',
+                                                            borderRadius: '999px',
+                                                            background: 'rgba(255,87,34,0.08)',
+                                                            color: '#FF5722',
+                                                            fontFamily: "'Space Grotesk', sans-serif",
+                                                            fontSize: '12px',
+                                                            fontWeight: 600,
+                                                        }}>
+                                                            <Sparkles size={14} strokeWidth={2} />
+                                                            {DISCOUNT_PCT}% OFF en tu compra
+                                                        </div>
+                                                    ) : (
+                                                        <p style={{
+                                                            fontSize: '12px',
+                                                            fontWeight: 500,
+                                                            color: '#86868B',
+                                                            margin: '0 0 8px',
+                                                        }}>
+                                                            Sumá{' '}
+                                                            <span style={{ color: '#FF5722', fontWeight: 700 }}>
+                                                                ${remaining.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                            {' '}más para obtener {DISCOUNT_PCT}% OFF
+                                                        </p>
+                                                    )}
+                                                    <div style={{
+                                                        width: '100%', height: '5px',
+                                                        background: '#F2F2F7', borderRadius: '999px',
+                                                        overflow: 'hidden', marginTop: hasDiscount ? '8px' : '0',
+                                                    }}>
+                                                        <div style={{
+                                                            height: '100%',
+                                                            width: `${progressPct}%`,
+                                                            background: hasDiscount
+                                                                ? '#FF5722'
+                                                                : 'linear-gradient(90deg, #FF8A65, #FF5722)',
+                                                            borderRadius: '999px',
+                                                            transition: 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                                            boxShadow: hasDiscount ? '0 0 8px rgba(255,87,34,0.3)' : 'none',
+                                                        }} />
                                                     </div>
-                                                )}
+                                                </div>
+
+                                                {/* Summary rows */}
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                                                        <span style={{ color: '#86868B' }}>Subtotal</span>
+                                                        <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, color: '#1D1D1F' }}>
+                                                            ${cartTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    </div>
+
+                                                    {hasDiscount && (
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                                                            <span style={{ color: '#FF5722', fontWeight: 500 }}>{DISCOUNT_PCT}% OFF en tu compra</span>
+                                                            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, color: '#FF5722' }}>
+                                                                -${discountAmount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Divider */}
+                                                <div style={{ height: '1px', background: 'rgba(0,0,0,0.06)', margin: '0 0 14px' }} />
+
+
+
+                                                {/* Total row with struck-through original */}
+                                                <div style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'baseline',
+                                                    marginBottom: '18px',
+                                                }}>
+                                                    <span style={{
+                                                        fontFamily: "'Space Grotesk', sans-serif",
+                                                        fontSize: '15px',
+                                                        fontWeight: 600,
+                                                        color: '#1D1D1F',
+                                                    }}>Total</span>
+                                                    <div style={{ textAlign: 'right' }}>
+                                                        {hasDiscount && (
+                                                            <span style={{
+                                                                fontFamily: "'Space Grotesk', sans-serif",
+                                                                fontSize: '13px',
+                                                                color: '#AEAEB2',
+                                                                textDecoration: 'line-through',
+                                                                marginRight: '8px',
+                                                            }}>
+                                                                ${cartTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                        )}
+                                                        <span style={{
+                                                            fontFamily: "'Space Grotesk', sans-serif",
+                                                            fontSize: '22px',
+                                                            fontWeight: 700,
+                                                            color: '#1D1D1F',
+                                                        }}>
+                                                            ${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Checkout CTA */}
+                                                <button
+                                                    onClick={() => {
+                                                        setIsCartOpen(false);
+                                                        router.push('/checkout');
+                                                    }}
+                                                    style={{
+                                                        width: '100%', height: '48px',
+                                                        border: 'none', borderRadius: '12px',
+                                                        background: '#1D1D1F', color: 'white',
+                                                        fontFamily: "'Space Grotesk', sans-serif",
+                                                        fontSize: '15px', fontWeight: 600,
+                                                        cursor: 'pointer', transition: 'all 0.25s',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        gap: '8px', letterSpacing: '0.02em',
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.background = '#FF5722';
+                                                        e.currentTarget.style.transform = 'translateY(-1px)';
+                                                        e.currentTarget.style.boxShadow = '0 6px 24px rgba(255,87,34,0.3)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.background = '#1D1D1F';
+                                                        e.currentTarget.style.transform = 'translateY(0)';
+                                                        e.currentTarget.style.boxShadow = 'none';
+                                                    }}
+                                                >
+                                                    Iniciar compra
+                                                    <ArrowRight size={16} strokeWidth={2} />
+                                                </button>
                                             </div>
                                         </>
                                     )}

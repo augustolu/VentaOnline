@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import config from '../../config/tenantConfig.json' with { type: 'json' };
 import { CheckoutError } from './checkout.errors.js';
 
 // ---------------------------------------------------------------------------
@@ -110,13 +111,20 @@ export async function processCheckout(userId, cartItems) {
     }
 
     // ─── 4. Calcular totales pre-transacción (optimización) ──────────────────
-    let totalAmount = 0;
+    let subtotal = 0;
     const resolvedItems = cartItems.map((item) => {
         const product = productMap.get(item.product_id);
         const unitPrice = resolveUnitPrice(product, item.quantity, isWholesaler);
-        totalAmount += unitPrice * item.quantity;
+        subtotal += unitPrice * item.quantity;
         return { ...item, unit_price: unitPrice };
     });
+
+    // Aplicar descuento por umbral si está configurado
+    let totalAmount = subtotal;
+    const { discountThreshold, discountPct } = config.checkout || {};
+    if (discountThreshold && subtotal >= discountThreshold) {
+        totalAmount = subtotal * (1 - (discountPct || 0) / 100);
+    }
 
     // ─── 5. Transacción ACID ──────────────────────────────────────────────────
     //

@@ -40,6 +40,7 @@ export default function HomePage() {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
     const [isHeroHovered, setIsHeroHovered] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
 
     // Products State
     const [products, setProducts] = useState([]);
@@ -62,6 +63,7 @@ export default function HomePage() {
     };
 
     useEffect(() => {
+        setIsMounted(true);
         fetchProducts();
 
         let lastMouseY = 0;
@@ -138,6 +140,18 @@ export default function HomePage() {
 
         return match;
     });
+
+    if (!isMounted) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen font-body flex flex-col">
+                <Header />
+                <main className="flex-1 flex flex-col items-center justify-center p-12">
+                    <span className="material-icons animate-spin text-4xl text-primary">autorenew</span>
+                </main>
+                <Footer />
+            </div>
+        );
+    }
 
     return (
         <div className="bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark font-body transition-colors duration-200">
@@ -341,9 +355,21 @@ export default function HomePage() {
                                             ) : (
                                                 <span className="material-icons text-gray-300 dark:text-gray-600 text-6xl">image_not_supported</span>
                                             )}
-                                            {product.stock_online === 0 && product.stock_physical === 0 && (
-                                                <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded">Sin Stock</span>
-                                            )}
+                                            {(() => {
+                                                const getStock = (p) => {
+                                                    if (!p) return 0;
+                                                    if (p.stock_online && typeof p.stock_online.quantity === 'number') return p.stock_online.quantity;
+                                                    if (typeof p.stock_online === 'number') return p.stock_online;
+                                                    if (typeof p.stockOnline === 'number') return p.stockOnline;
+                                                    return 0;
+                                                };
+                                                const stockO = getStock(product);
+                                                const stockP = (product.stock_physical?.quantity || product.stock_physical || 0);
+                                                if (stockO === 0 && (typeof stockP === 'number' ? stockP : stockP.quantity) === 0) {
+                                                    return <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded">Sin Stock</span>;
+                                                }
+                                                return null;
+                                            })()}
                                             <button
                                                 onClick={(e) => {
                                                     e.preventDefault();
@@ -369,15 +395,37 @@ export default function HomePage() {
                                                     <span className="text-lg sm:text-xl font-black text-primary">${Number(product.price).toLocaleString('es-AR')}</span>
                                                     {!isAdminOrEmployee() ? (
                                                         <button
+                                                            disabled={(() => {
+                                                                const s = product.stock_online;
+                                                                const q = (s && typeof s.quantity === 'number') ? s.quantity : (typeof s === 'number' ? s : (product.stockOnline || 0));
+                                                                return q <= 0;
+                                                            })()}
                                                             onClick={(e) => {
                                                                 e.preventDefault();
                                                                 e.stopPropagation();
                                                                 addToCart(product);
                                                             }}
-                                                            className="bg-gray-100 hover:bg-primary hover:text-white dark:bg-gray-700 dark:hover:bg-primary text-gray-800 dark:text-white w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all shadow-sm focus:outline-none"
-                                                            title="Añadir al carrito"
+                                                            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all shadow-sm focus:outline-none ${(() => {
+                                                                const s = product.stock_online;
+                                                                const q = (s && typeof s.quantity === 'number') ? s.quantity : (typeof s === 'number' ? s : (product.stockOnline || 0));
+                                                                return q <= 0;
+                                                            })()
+                                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                                                                : 'bg-gray-100 hover:bg-primary hover:text-white dark:bg-gray-700 dark:hover:bg-primary text-gray-800 dark:text-white'
+                                                                }`}
+                                                            title={(() => {
+                                                                const s = product.stock_online;
+                                                                const q = (s && typeof s.quantity === 'number') ? s.quantity : (typeof s === 'number' ? s : (product.stockOnline || 0));
+                                                                return q <= 0 ? "Sin stock online" : "Añadir al carrito";
+                                                            })()}
                                                         >
-                                                            <span className="material-icons text-sm sm:text-base">add_shopping_cart</span>
+                                                            <span className="material-icons text-sm sm:text-base">
+                                                                {(() => {
+                                                                    const s = product.stock_online;
+                                                                    const q = (s && typeof s.quantity === 'number') ? s.quantity : (typeof s === 'number' ? s : (product.stockOnline || 0));
+                                                                    return q <= 0 ? 'block' : 'add_shopping_cart';
+                                                                })()}
+                                                            </span>
                                                         </button>
                                                     ) : (
                                                         <div className="flex gap-1.5 z-10">
