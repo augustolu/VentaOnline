@@ -110,14 +110,15 @@ model StockPhysical {
 
 model Order {
   id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id          String          @db.Uuid
+  user_id          String?         @db.Uuid
   status           String          @default("Pending") @db.VarChar(50)
   /// CHECK (total_amount >= 0) — presente en el DDL PostgreSQL.
   total_amount     Decimal         @db.Decimal(10, 2)
   created_at       DateTime?       @default(now()) @db.Timestamp(6)
   updated_at       DateTime?       @default(now()) @updatedAt @db.Timestamp(6)
+  expires_at       DateTime?       @db.Timestamp(6)
   order_items      OrderItem[]
-  user             User            @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  user             User?           @relation(fields: [user_id], references: [id], onUpdate: NoAction)
   payment          Payment?
   shipping_details ShippingDetail?
 

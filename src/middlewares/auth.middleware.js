@@ -51,6 +51,37 @@ export function authenticate(req, res, next) {
 }
 
 /**
+ * Middleware que intenta autenticar al usuario pero continúa si no hay token.
+ * Es útil para rutas con "Guest Checkout".
+ * Inyecta req.user si el token es válido, de lo contrario req.user será undefined.
+ */
+export function optionalAuthenticate(req, res, next) {
+    try {
+        let token = null;
+
+        const authHeader = req.headers['authorization'];
+        if (authHeader?.startsWith('Bearer ')) {
+            token = authHeader.slice(7);
+        } else if (req.cookies?.token) {
+            token = req.cookies.token;
+        }
+
+        if (token) {
+            const payload = verifyToken(token);
+            req.user = {
+                id: payload.sub,
+                email: payload.email,
+                role: payload.role,
+            };
+        }
+    } catch (err) {
+        // En modo opcional, si el token es inválido simplemente lo ignoramos
+        console.warn('[OptionalAuthenticate] Token ignorado:', err.message);
+    }
+    next();
+}
+
+/**
  * Alias para mayor legibilidad en las rutas.
  */
 export const requireAuth = authenticate;

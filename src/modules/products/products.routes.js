@@ -22,7 +22,7 @@ router.put('/:id', authenticate, updateProductController);
 // DELETE /api/products/:id (Protegido por JWT Admin/Employee)
 router.delete('/:id', authenticate, async (req, res) => {
     try {
-        if (req.user.role !== 'Admin' && req.user.role !== 'Employee') {
+        if (req.user.role !== 'Admin' && req.user.role !== 'Employee' && req.user.role !== 'Developer') {
             return res.status(403).json({ success: false, message: 'No tienes permisos.' });
         }
         const { deleteProduct } = await import('./products.service.js');
@@ -36,7 +36,7 @@ router.delete('/:id', authenticate, async (req, res) => {
 // PATCH /api/products/:id/stock (Protegido por JWT Admin/Employee)
 router.patch('/:id/stock', authenticate, async (req, res) => {
     try {
-        if (req.user.role !== 'Admin' && req.user.role !== 'Employee') {
+        if (req.user.role !== 'Admin' && req.user.role !== 'Employee' && req.user.role !== 'Developer') {
             return res.status(403).json({ success: false, message: 'No tienes permisos.' });
         }
         const { updateProductStock } = await import('./products.service.js');
@@ -50,7 +50,7 @@ router.patch('/:id/stock', authenticate, async (req, res) => {
 // POST /api/products/:id/sale (Protegido por JWT Admin/Employee)
 router.post('/:id/sale', authenticate, async (req, res) => {
     try {
-        if (req.user.role !== 'Admin' && req.user.role !== 'Employee') {
+        if (req.user.role !== 'Admin' && req.user.role !== 'Employee' && req.user.role !== 'Developer') {
             return res.status(403).json({ success: false, message: 'No tienes permisos.' });
         }
         const { registerPhysicalSale } = await import('./products.service.js');

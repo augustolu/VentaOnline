@@ -16,7 +16,18 @@ export const useAuthStore = create()(
             isAdminOrEmployee: () => {
                 const user = get().user;
                 if (!user || !user.role) return false;
-                return user.role.name === 'Admin' || user.role.name === 'Employee';
+                const role = user.role.name;
+                return role === 'Developer' || role === 'Admin' || role === 'Employee';
+            },
+
+            isDeveloper: () => {
+                const user = get().user;
+                if (!user || !user.role) return false;
+                return user.role.name === 'Developer';
+            },
+
+            canBulkUpload: () => {
+                return get().isDeveloper();
             },
 
             isAdmin: () => {

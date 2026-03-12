@@ -20,7 +20,7 @@ export const createProductController = async (req, res) => {
         if (req.headers.authorization === 'Bearer DUMMY') {
             req.user = { role: 'Admin' };
         }
-        else if (req.user?.role !== 'Admin' && req.user?.role !== 'Employee') {
+        else if (req.user?.role !== 'Admin' && req.user?.role !== 'Employee' && req.user?.role !== 'Developer') {
             return res.status(403).json({ success: false, message: 'No tienes permisos para realizar esta acción.' });
         }
 
@@ -42,7 +42,7 @@ export const updateProductController = async (req, res) => {
         if (req.headers.authorization === 'Bearer DUMMY') {
             req.user = { role: 'Admin' };
         }
-        else if (req.user?.role !== 'Admin' && req.user?.role !== 'Employee') {
+        else if (req.user?.role !== 'Admin' && req.user?.role !== 'Employee' && req.user?.role !== 'Developer') {
             return res.status(403).json({ success: false, message: 'No tienes permisos para realizar esta acción.' });
         }
 
@@ -91,7 +91,7 @@ export const getProductByIdController = async (req, res) => {
  */
 export const autoImageController = async (req, res) => {
     try {
-        if (req.user.role !== 'Admin' && req.user.role !== 'Employee') {
+        if (req.user.role !== 'Admin' && req.user.role !== 'Employee' && req.user.role !== 'Developer') {
             return res.status(403).json({ success: false, message: 'No tienes permisos.' });
         }
 
@@ -119,7 +119,7 @@ export const autoImageController = async (req, res) => {
  */
 export const bulkDeleteController = async (req, res) => {
     try {
-        if (req.user?.role !== 'Admin' && req.user?.role !== 'Employee') {
+        if (req.user?.role !== 'Admin' && req.user?.role !== 'Employee' && req.user?.role !== 'Developer') {
             return res.status(403).json({ success: false, message: 'No tienes permisos.' });
         }
         const { ids } = req.body;
@@ -138,7 +138,7 @@ export const bulkDeleteController = async (req, res) => {
  */
 export const bulkUpdatePriceController = async (req, res) => {
     try {
-        if (req.user?.role !== 'Admin' && req.user?.role !== 'Employee') {
+        if (req.user?.role !== 'Admin' && req.user?.role !== 'Employee' && req.user?.role !== 'Developer') {
             return res.status(403).json({ success: false, message: 'No tienes permisos.' });
         }
         const { ids, update } = req.body;

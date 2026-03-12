@@ -1,4 +1,4 @@
-import { processCheckout } from './checkout.service.js';
+import { processCheckout, releaseExpiredOrdersStock } from './checkout.service.js';
 import { CheckoutError } from './checkout.errors.js';
 
 /**
@@ -24,7 +24,7 @@ import { CheckoutError } from './checkout.errors.js';
  */
 export const checkoutController = async (req, res) => {
     try {
-        const userId = req.user.id;      // inyectado por authenticate middleware
+        const userId = req.user?.id || null;      // inyectado por optionalAuthenticate
         const { items } = req.body;         // validado y normalizado por validateCheckout
 
         const result = await processCheckout(userId, items);
@@ -47,6 +47,29 @@ export const checkoutController = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Error interno del servidor. Por favor intenta más tarde.',
+        });
+    }
+};
+
+/**
+ * POST /api/checkout/cleanup
+ * Libera el stock de órdenes expiradas manualmente.
+ * Se llama desde el frontend cuando detecta que el timer llegó a cero.
+ */
+export const cleanupController = async (req, res) => {
+    try {
+        const { order_id } = req.body;
+        const result = await releaseExpiredOrdersStock(order_id);
+        return res.status(200).json({
+            success: true,
+            message: 'Limpieza de stock completada.',
+            released_count: result.released
+        });
+    } catch (error) {
+        console.error('[CheckoutController] Error en cleanup:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error al procesar la limpieza de stock.',
         });
     }
 };

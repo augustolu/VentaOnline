@@ -57,7 +57,7 @@ export const uploadReceiptController = async (req, res) => {
         }
 
         const result = await uploadReceipt({
-            userId: req.user.id,
+            userId: req.user?.id || null,
             orderId: req.body.order_id,
             amount: req.body.amount,
             transferReference: req.body.transfer_reference,

@@ -72,7 +72,8 @@ export async function uploadReceipt({ userId, orderId, amount, transferReference
         throw new PaymentError('Orden no encontrada.', 404);
     }
 
-    if (order.user_id !== userId) {
+    // Si la orden tiene un dueño (no es guest) y el que intenta pagar no es el dueño
+    if (order.user_id && order.user_id !== userId) {
         throw new PaymentError('No tienes permiso para pagar esta orden.', 403);
     }
 

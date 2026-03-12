@@ -9,6 +9,9 @@ import { useCartStore } from '@/lib/store/useCartStore';
 import { useAuthStore } from '@/lib/store/useAuthStore';
 import { useEffect } from 'react';
 import axios from 'axios';
+import { useCheckoutStore } from '@/lib/store/useCheckoutStore';
+import ReservationTimer from '@/components/ReservationTimer';
+import ReservationExpiredModal from '@/components/ReservationExpiredModal';
 import {
     ShoppingBag,
     Upload,
@@ -42,21 +45,26 @@ export default function CheckoutPage() {
     const [notes, setNotes] = useState('');
     const [orderId, setOrderId] = useState(null);
     const [error, setError] = useState(null);
+    const [isExpiredModalOpen, setIsExpiredModalOpen] = useState(false);
     const [copiedField, setCopiedField] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [orderComplete, setOrderComplete] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
 
+    const { currentOrderId, expiresAt, setCheckoutSession, clearCheckoutSession } = useCheckoutStore();
+
     useEffect(() => {
         setIsMounted(true);
-    }, []);
 
-    // Redirect if not authenticated
-    useEffect(() => {
-        if (!user) {
-            router.push('/login?redirect=/checkout');
+        // Si hay una sesión activa persistida, restaurar el estado
+        if (currentOrderId && expiresAt) {
+            setOrderId(currentOrderId);
+            // Si ya tenemos ID, probablemente estemos en el paso 2 o 3
+            // Por simplicidad, si hay sesión activa pero el componente carga de cero, vamos al paso 2
+            setStep(2);
         }
-    }, [user, router]);
+    }, [currentOrderId, expiresAt]);
+
 
     const cartTotal = getTotalPrice();
     const cartItemsCount = getTotalItems();
@@ -88,16 +96,21 @@ export default function CheckoutPage() {
                 quantity: item.quantity
             }));
 
+            const config = { withCredentials: true, headers: {} };
+            const token = useAuthStore.getState().token;
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
+
             const response = await axios.post('http://localhost:3001/api/checkout',
                 { items: cartItems },
-                {
-                    headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
-                    withCredentials: true
-                }
+                config
             );
 
             if (response.data.success) {
-                setOrderId(response.data.data.order_id);
+                const { order_id, expires_at } = response.data.data;
+                setOrderId(order_id);
+                setCheckoutSession(order_id, expires_at);
                 setStep(2);
             }
         } catch (err) {
@@ -120,19 +133,23 @@ export default function CheckoutPage() {
             formData.append('receipt', receiptFile);
             if (notes) formData.append('transfer_reference', notes);
 
+            const config = {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                withCredentials: true
+            };
+            const token = useAuthStore.getState().token;
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
+
             const response = await axios.post('http://localhost:3001/api/payments/upload-receipt',
                 formData,
-                {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                        Authorization: `Bearer ${useAuthStore.getState().token}`
-                    },
-                    withCredentials: true
-                }
+                config
             );
 
             if (response.data.success) {
                 setOrderComplete(true);
+                clearCheckoutSession();
             }
         } catch (err) {
             console.error('Error uploading receipt:', err);
@@ -350,6 +367,26 @@ export default function CheckoutPage() {
         </div>
     );
 
+    const handleExpiration = async () => {
+        // 1. Llamar al cleanup del backend inmediatamente enviando el ID específico
+        try {
+            await axios.post('http://localhost:3001/api/checkout/cleanup', {
+                order_id: currentOrderId
+            });
+        } catch (err) {
+            console.error('Error al disparar cleanup:', err);
+        }
+
+        // 2. Limpiar sesión local y mostrar modal
+        clearCheckoutSession();
+        setIsExpiredModalOpen(true);
+    };
+
+    const handleConfirmExpiration = () => {
+        setIsExpiredModalOpen(false);
+        router.push('/');
+    };
+
 
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen font-body flex flex-col">
@@ -389,6 +426,13 @@ export default function CheckoutPage() {
                         color: '#1D1D1F',
                         margin: 0,
                     }}>Checkout</h1>
+
+                    {/* Reservation Timer */}
+                    {expiresAt && (
+                        <div style={{ marginLeft: 'auto' }}>
+                            <ReservationTimer expiresAt={expiresAt} onExpire={handleExpiration} />
+                        </div>
+                    )}
                 </div>
 
                 {error && (

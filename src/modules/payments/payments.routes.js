@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../../middlewares/auth.middleware.js';
+import { optionalAuthenticate, authenticate } from '../../middlewares/auth.middleware.js';
 import { requireRoles } from '../../middlewares/roles.middleware.js';
 import { upload } from './payments.multer.js';
 import { validateUploadReceipt, validateVerify } from './payments.validator.js';
@@ -7,40 +7,19 @@ import { uploadReceiptController, verifyPaymentController } from './payments.con
 
 const router = Router();
 
-// Todas las rutas del módulo requieren autenticación
-router.use(authenticate);
-
-/**
- * POST /api/payments/upload-receipt
- *
- * Orden de middlewares:
- *  1. authenticate     — verifica JWT, inyecta req.user
- *  2. upload.single    — procesa multipart/form-data, valida tipo y tamaño
- *  3. validateUploadReceipt — valida campos del body con Zod
- *  4. uploadReceiptController — lógica de negocio
- *
- * Acceso: cualquier usuario autenticado (dueño de la orden)
- */
+// Middleware base: opcional para permitir subir comprobantes sin sesión
+// pero la verificación (verify) requiere roles (implica auth)
 router.post(
     '/upload-receipt',
-    upload.single('receipt'),        // campo multipart: "receipt"
+    optionalAuthenticate,
+    upload.single('receipt'),
     validateUploadReceipt,
     uploadReceiptController,
 );
 
-/**
- * POST /api/payments/verify
- *
- * Orden de middlewares:
- *  1. authenticate     — verifica JWT, inyecta req.user
- *  2. requireRoles     — RBAC: solo Admin o Employee
- *  3. validateVerify   — valida body con Zod
- *  4. verifyPaymentController — lógica de negocio
- *
- * Acceso restringido: Admin, Employee
- */
 router.post(
     '/verify',
+    authenticate,
     requireRoles('Admin', 'Employee'),
     validateVerify,
     verifyPaymentController,

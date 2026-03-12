@@ -6,6 +6,7 @@ async function main() {
     console.log('🌱 Iniciando seedeo de base de datos...');
 
     const roles = [
+        { name: 'Developer', description: 'Acceso total y herramientas de desarrollo avanzadas.' },
         { name: 'Admin', description: 'Acceso total al sistema. Gestiona usuarios, productos y configuración.' },
         { name: 'Employee', description: 'Gestiona pedidos, stock y comprobantes de pago.' },
         { name: 'Client', description: 'Cliente final. Puede comprar y ver sus propias órdenes.' },

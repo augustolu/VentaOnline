@@ -18,7 +18,7 @@ import BulkPriceEditModal from '@/components/BulkPriceEditModal';
 import { useSearchStore } from '@/lib/store/useSearchStore';
 
 export default function HomePage() {
-    const { isAdminOrEmployee, isAdmin, user, logout } = useAuthStore();
+    const { isAdminOrEmployee, isAdmin, isDeveloper, canBulkUpload, user, logout } = useAuthStore();
     const { searchQuery, setSearchQuery } = useSearchStore();
     const { addToCart } = useCartStore();
     const { toggleFavorite, isFavorite } = useFavoritesStore();
@@ -183,7 +183,7 @@ export default function HomePage() {
                                     <span className="material-icons group-hover:rotate-90 transition-transform">add_circle</span>
                                     Agregar Producto
                                 </button>
-                                {isAdmin() && (
+                                {canBulkUpload() && (
                                     <button
                                         onClick={() => setIsBulkModalOpen(true)}
                                         className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white py-2 px-4 rounded-lg text-xs font-bold transition-all shadow-sm group"

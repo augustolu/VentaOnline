@@ -52,19 +52,27 @@ function resolveUnitPrice(product, quantity, isWholesaler) {
  *
  * @param {string}     userId    - ID del usuario autenticado.
  * @param {CartItem[]} cartItems - Items del carrito.
- * @returns {Promise<CheckoutResult>}
+ * @returns {Promise<CheckoutResult & { expires_at: Date }>}
  * @throws {CheckoutError} si hay problema de stock o negocio.
  */
 export async function processCheckout(userId, cartItems) {
-    // ─── 1. Verificar que el usuario existe y cargar su rol ───────────────────
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { id: true, role: { select: { name: true } } },
+    // ─── 0. Limpieza preventiva de órdenes expiradas (vuelo) ──────────────────
+    // Esto asegura que si hay stock bloqueado por órdenes viejas, se libere
+    // antes de intentar este nuevo checkout.
+    await releaseExpiredOrdersStock().catch(err => {
+        console.error('Error en limpieza preventiva de stock:', err);
     });
+    // ─── 1. Verificar que el usuario existe y cargar su rol ───────────────────
+    let isWholesaler = false;
+    if (userId) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, role: { select: { name: true } } },
+        });
 
-    if (!user) throw new CheckoutError('Usuario no encontrado.', 404);
-
-    const isWholesaler = user.role.name === 'Wholesaler';
+        if (!user) throw new CheckoutError('Usuario no encontrado.', 404);
+        isWholesaler = user.role.name === 'Wholesaler';
+    }
 
     // ─── 2. Cargar productos con stock online y precio mayorista ─────────────
     const productIds = cartItems.map((i) => i.product_id);
@@ -154,12 +162,16 @@ export async function processCheckout(userId, cartItems) {
                 }
             }
 
-            // 5b. Crear la orden en estado Pending
+            // 5b. Crear la orden en estado Pending con expiración (10 segundos para test)
+            const expirationTime = new Date();
+            expirationTime.setSeconds(expirationTime.getSeconds() + 10);
+
             const newOrder = await tx.order.create({
                 data: {
                     user_id: userId,
                     status: 'Pending',
                     total_amount: totalAmount,
+                    expires_at: expirationTime,
                 },
             });
 
@@ -195,5 +207,71 @@ export async function processCheckout(userId, cartItems) {
         status: order.status,
         total_amount: Number(order.total_amount),
         items_count: resolvedItems.length,
+        expires_at: order.expires_at,
     };
+}
+
+/**
+ * Busca órdenes en estado 'Pending' que hayan superado su 'expires_at',
+ * las marca como 'Expired' y devuelve el stock al inventario online.
+ * 
+ * @param {string} [targetOrderId] - Si se provee, se limpia específicamente esta orden (útil para cleanup manual).
+ */
+export async function releaseExpiredOrdersStock(targetOrderId = null) {
+    const now = new Date();
+
+    // 1. Buscar órdenes expiradas que aún están "Pending"
+    const whereClause = {
+        status: 'Pending'
+    };
+
+    if (targetOrderId) {
+        whereClause.id = targetOrderId;
+    } else {
+        whereClause.expires_at = { lt: now };
+    }
+
+    const expiredOrders = await prisma.order.findMany({
+        where: whereClause,
+        include: {
+            order_items: true
+        }
+    });
+
+    if (expiredOrders.length === 0) return { released: 0 };
+
+    console.log(`[StockCleanup] Procesando ${expiredOrders.length} órdenes expiradas...`);
+
+    // 2. Ejecutar reversión en una transacción para cada orden
+    // (Opcional: agrupar por producto para optimizar si son muchas)
+    let processedCount = 0;
+
+    for (const order of expiredOrders) {
+        try {
+            await prisma.$transaction(async (tx) => {
+                // a. Actualizar estado de la orden
+                await tx.order.update({
+                    where: { id: order.id },
+                    data: { status: 'Expired' }
+                });
+
+                // b. Devolver stock a stock_online
+                for (const item of order.order_items) {
+                    if (item.stock_source === 'online') {
+                        await tx.stockOnline.update({
+                            where: { product_id: item.product_id },
+                            data: { quantity: { increment: item.quantity } }
+                        });
+                    }
+                }
+
+                console.log(`[StockCleanup] Orden ${order.id} expirada. Stock devuelto.`);
+                processedCount++;
+            });
+        } catch (error) {
+            console.error(`[StockCleanup] Error procesando orden ${order.id}:`, error);
+        }
+    }
+
+    return { released: processedCount };
 }
