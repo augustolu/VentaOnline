@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store/useAuthStore';
 import { useCartStore } from '@/lib/store/useCartStore';
@@ -17,6 +17,7 @@ import {
     Package,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import CartFeedback from './CartFeedback';
 
 const DISCOUNT_THRESHOLD = 1_000_000;
 const DISCOUNT_PCT = 5;
@@ -35,6 +36,7 @@ export default function Header() {
     const {
         items, getTotalItems, getTotalPrice,
         increaseQuantity, decreaseQuantity, removeFromCart, clearCart,
+        lastAdded
     } = useCartStore();
     const { getTotalFavorites } = useFavoritesStore();
     const { searchQuery, setSearchQuery } = useSearchStore();
@@ -48,6 +50,19 @@ export default function Header() {
     useEffect(() => {
         setIsMounted(true);
     }, []);
+
+    // Animation trigger for cart icon
+    const [shouldBounce, setShouldBounce] = useState(false);
+    const processedAddedRef = useRef(lastAdded);
+
+    useEffect(() => {
+        if (lastAdded > 0 && lastAdded !== processedAddedRef.current) {
+            processedAddedRef.current = lastAdded;
+            setShouldBounce(true);
+            const timer = setTimeout(() => setShouldBounce(false), 500);
+            return () => clearTimeout(timer);
+        }
+    }, [lastAdded]);
 
     // Lock body scroll when drawer is open
     useEffect(() => {
@@ -192,8 +207,17 @@ export default function Header() {
                                 {/* ── Cart Button ─────────────────────── */}
                                 <button
                                     onClick={() => setIsCartOpen(true)}
-                                    className="relative hover:text-primary transition-colors flex items-center gap-2 focus:outline-none"
+                                    className={`relative hover:text-primary transition-all flex items-center gap-2 focus:outline-none ${shouldBounce ? 'animate-bounce-subtle' : ''}`}
                                 >
+                                    <style jsx>{`
+                                        @keyframes bounce-subtle {
+                                            0%, 100% { transform: scale(1); }
+                                            50% { transform: scale(1.15); }
+                                        }
+                                        .animate-bounce-subtle {
+                                            animation: bounce-subtle 0.5s ease;
+                                        }
+                                    `}</style>
                                     <div className="relative">
                                         <span className="material-icons text-3xl">shopping_cart</span>
                                         {cartItemsCount > 0 && (
@@ -735,6 +759,7 @@ export default function Header() {
                     </div>
                 </nav>
             </header>
+            <CartFeedback />
         </>
     );
 }

@@ -41,6 +41,7 @@
     },
     "checkout": {
         "discountThreshold": 1000000,
-        "discountPct": 5
+        "discountPct": 5,
+        "reservationMinutes": 15
     }
 }

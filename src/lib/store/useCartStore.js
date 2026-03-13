@@ -5,6 +5,7 @@ export const useCartStore = create(
     persist(
         (set, get) => ({
             items: [], // Array of { product, quantity }
+            lastAdded: 0, // Timestamp to trigger feedback
 
             addToCart: (product) => {
                 set((state) => {
@@ -33,6 +34,7 @@ export const useCartStore = create(
                             return state;
                         }
                         return {
+                            lastAdded: Date.now(),
                             items: state.items.map((item) =>
                                 item.product.id === product.id
                                     ? { ...item, quantity: item.quantity + 1 }
@@ -43,8 +45,37 @@ export const useCartStore = create(
 
                     if (stockAvailable <= 0) return state;
 
-                    return { items: [...state.items, { product, quantity: 1 }] };
+                    return {
+                        lastAdded: Date.now(),
+                        items: [...state.items, { product, quantity: 1 }]
+                    };
                 });
+            },
+
+            buyNow: (product) => {
+                const state = get();
+                const getStock = (p) => {
+                    if (!p) return 0;
+                    if (p.stock_online && typeof p.stock_online.quantity === 'number') return p.stock_online.quantity;
+                    if (typeof p.stock_online === 'number') return p.stock_online;
+                    if (typeof p.stockOnline === 'number') return p.stockOnline;
+                    return 0;
+                };
+
+                const stockAvailable = getStock(product);
+                const existingItem = state.items.find((item) => item.product.id === product.id);
+
+                if (existingItem) {
+                    return true;
+                }
+
+                if (stockAvailable <= 0) return false;
+
+                set((state) => ({
+                    lastAdded: Date.now(),
+                    items: [...state.items, { product, quantity: 1 }]
+                }));
+                return true;
             },
 
             increaseQuantity: (productId) => {
@@ -112,7 +143,8 @@ export const useCartStore = create(
             },
         }),
         {
-            name: 'mi-tienda-cart', // key in local storage
+            name: 'mi-tienda-cart',
+            partialize: (state) => ({ items: state.items }),
         }
     )
 );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useCartStore } from '@/lib/store/useCartStore';
@@ -14,8 +14,9 @@ import DeleteProductModal from '@/components/DeleteProductModal';
 
 export default function ProductDetailPage() {
     const params = useParams();
+    const router = useRouter();
     const productId = params?.id;
-    const { addToCart } = useCartStore();
+    const { addToCart, buyNow } = useCartStore();
     const { isFavorite, toggleFavorite } = useFavoritesStore();
     const { isAdminOrEmployee } = useAuthStore();
 
@@ -203,8 +204,10 @@ export default function ProductDetailPage() {
                                                     return !((s && typeof s.quantity === 'number') ? s.quantity > 0 : (typeof s === 'number' ? s > 0 : (product.stockOnline > 0)));
                                                 })()}
                                                 onClick={() => {
-                                                    addToCart(product);
-                                                    router.push('/checkout');
+                                                    const success = buyNow(product);
+                                                    if (success) {
+                                                        router.push('/checkout');
+                                                    }
                                                 }}
                                                 style={{
                                                     width: '100%',

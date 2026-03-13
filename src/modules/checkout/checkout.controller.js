@@ -25,9 +25,9 @@ import { CheckoutError } from './checkout.errors.js';
 export const checkoutController = async (req, res) => {
     try {
         const userId = req.user?.id || null;      // inyectado por optionalAuthenticate
-        const { items } = req.body;         // validado y normalizado por validateCheckout
+        const { items, shipping_details } = req.body;         // validado y normalizado por validateCheckout
 
-        const result = await processCheckout(userId, items);
+        const result = await processCheckout(userId, items, shipping_details);
 
         return res.status(201).json({
             success: true,

@@ -32,6 +32,24 @@ function resolveUnitPrice(product, quantity, isWholesaler) {
     return Number(product.price);
 }
 
+/**
+ * Calcula el costo de envío basado en el código postal (Zonas de Argentina).
+ * Lógica simplificada:
+ * - 1000-1499: CABA ($2500)
+ * - 1500-1999: GBA ($3500)
+ * - Otros: Interior ($6500)
+ * 
+ * @param {string} postalCode 
+ * @returns {number} Costo de envío.
+ */
+function calculateShipping(postalCode) {
+    const cp = parseInt(postalCode);
+    if (isNaN(cp)) return 5000;
+    if (cp >= 1000 && cp <= 1499) return 2500;
+    if (cp >= 1500 && cp <= 1999) return 3500;
+    return 6500;
+}
+
 // ---------------------------------------------------------------------------
 // SERVICIO PRINCIPAL
 // ---------------------------------------------------------------------------
@@ -52,10 +70,11 @@ function resolveUnitPrice(product, quantity, isWholesaler) {
  *
  * @param {string}     userId    - ID del usuario autenticado.
  * @param {CartItem[]} cartItems - Items del carrito.
+ * @param {object}     shippingDetails - Datos de envío.
  * @returns {Promise<CheckoutResult & { expires_at: Date }>}
  * @throws {CheckoutError} si hay problema de stock o negocio.
  */
-export async function processCheckout(userId, cartItems) {
+export async function processCheckout(userId, cartItems, shippingDetails) {
     // ─── 0. Limpieza preventiva de órdenes expiradas (vuelo) ──────────────────
     // Esto asegura que si hay stock bloqueado por órdenes viejas, se libere
     // antes de intentar este nuevo checkout.
@@ -134,6 +153,10 @@ export async function processCheckout(userId, cartItems) {
         totalAmount = subtotal * (1 - (discountPct || 0) / 100);
     }
 
+    // Calcular costo de envío
+    const shippingCost = calculateShipping(shippingDetails.postal_code);
+    totalAmount += shippingCost;
+
     // ─── 5. Transacción ACID ──────────────────────────────────────────────────
     //
     // Usamos prisma.$transaction con isolationLevel SERIALIZABLE para garantizar
@@ -162,9 +185,10 @@ export async function processCheckout(userId, cartItems) {
                 }
             }
 
-            // 5b. Crear la orden en estado Pending con expiración (10 segundos para test)
+            // 5b. Crear la orden en estado Pending con expiración configurable
+            const reservationMinutes = config.checkout?.reservationMinutes || 15;
             const expirationTime = new Date();
-            expirationTime.setSeconds(expirationTime.getSeconds() + 10);
+            expirationTime.setMinutes(expirationTime.getMinutes() + reservationMinutes);
 
             const newOrder = await tx.order.create({
                 data: {
@@ -186,7 +210,20 @@ export async function processCheckout(userId, cartItems) {
                 })),
             });
 
-            // 5d. Descontar stock en stock_online (UPDATE atómico por producto)
+            // 5d. Crear los detalles de envío
+            await tx.shippingDetail.create({
+                data: {
+                    order_id: newOrder.id,
+                    address_line: shippingDetails.address_line,
+                    city: shippingDetails.city,
+                    state: shippingDetails.state,
+                    postal_code: shippingDetails.postal_code,
+                    shipping_type: shippingDetails.shipping_type,
+                    quoted_cost: shippingCost,
+                }
+            });
+
+            // 5e. Descontar stock en stock_online (UPDATE atómico por producto)
             await Promise.all(
                 resolvedItems.map((item) =>
                     tx.stockOnline.update({

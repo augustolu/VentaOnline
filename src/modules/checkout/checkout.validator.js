@@ -9,6 +9,13 @@ const checkoutSchema = z.object({
             })
         )
         .min(1, { message: 'El carrito no puede estar vacío.' }),
+    shipping_details: z.object({
+        address_line: z.string().min(5, { message: 'La dirección es demasiado corta.' }),
+        city: z.string().min(2, { message: 'La ciudad es requerida.' }),
+        state: z.string().min(2, { message: 'La provincia/estado es requerida.' }),
+        postal_code: z.string().min(4, { message: 'El código postal es inválido.' }),
+        shipping_type: z.enum(['standard', 'express']).default('standard'),
+    })
 });
 
 /**

@@ -51,26 +51,79 @@ export default function CheckoutPage() {
     const [orderComplete, setOrderComplete] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
 
-    const { currentOrderId, expiresAt, setCheckoutSession, clearCheckoutSession } = useCheckoutStore();
+    // Shipping states
+    const [shippingData, setShippingData] = useState({
+        address_line: '',
+        city: '',
+        state: '',
+        postal_code: '',
+        shipping_type: 'standard'
+    });
+    const [shippingCost, setShippingCost] = useState(0);
+
+    const { currentOrderId, expiresAt, setCheckoutSession, clearCheckoutSession, releaseStock } = useCheckoutStore();
 
     useEffect(() => {
         setIsMounted(true);
 
-        // Si hay una sesión activa persistida, restaurar el estado
         if (currentOrderId && expiresAt) {
             setOrderId(currentOrderId);
-            // Si ya tenemos ID, probablemente estemos en el paso 2 o 3
-            // Por simplicidad, si hay sesión activa pero el componente carga de cero, vamos al paso 2
             setStep(2);
         }
+
+        // --- Manejo de abandono ---
+        const handleUnload = () => {
+            // No podemos usar async/await aquí de forma fiable, pero releaseStock usa axios
+            // Para cierres de pestaña, navigator.sendBeacon es mejor, pero releaseStock
+            // ya hace lo que necesitamos para navegaciones internas de Next.js
+            if (currentOrderId && !orderComplete) {
+                // Sincrónico o disparar y olvidar para cierres bruscos
+                const data = JSON.stringify({ order_id: currentOrderId });
+                navigator.sendBeacon('http://localhost:3001/api/checkout/cleanup', data);
+            }
+        };
+
+        window.addEventListener('beforeunload', handleUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleUnload);
+            // Si el componente se desmonta (usuario navega a otra página de la SPA)
+            // y la orden NO está completa, liberamos stock.
+            // Usamos una referencia al estado actual para evitar problemas de cierre (clousure)
+            // pero en Next.js, si orderComplete cambia a true, este cleanup se re-ejecutará
+            // si lo metemos en las dependencias.
+        };
     }, [currentOrderId, expiresAt]);
+
+    // Cleanup de desmontaje específico para navegación SPA
+    useEffect(() => {
+        return () => {
+            // Si el usuario cambia de ruta (ej: vuelve al inicio) y hay una orden pendiente
+            if (currentOrderId && !orderComplete) {
+                releaseStock();
+            }
+        };
+    }, [currentOrderId, orderComplete, releaseStock]);
 
 
     const cartTotal = getTotalPrice();
     const cartItemsCount = getTotalItems();
     const hasDiscount = cartTotal >= DISCOUNT_THRESHOLD;
     const discountAmount = hasDiscount ? cartTotal * (DISCOUNT_PCT / 100) : 0;
-    const total = cartTotal - discountAmount;
+    const subtotalWithDiscount = cartTotal - discountAmount;
+    const total = subtotalWithDiscount + shippingCost;
+
+    // Shipping cost calculator (mock logic matching backend)
+    useEffect(() => {
+        const cp = parseInt(shippingData.postal_code);
+        if (!isNaN(cp) && shippingData.postal_code.length >= 4) {
+            if (cp >= 1000 && cp <= 1499) setShippingCost(2500);
+            else if (cp >= 1500 && cp <= 1999) setShippingCost(3500);
+            else setShippingCost(6500);
+        } else {
+            setShippingCost(0);
+        }
+    }, [shippingData.postal_code]);
 
     const handleCopy = async (text, field) => {
         await navigator.clipboard.writeText(text);
@@ -103,7 +156,10 @@ export default function CheckoutPage() {
             }
 
             const response = await axios.post('http://localhost:3001/api/checkout',
-                { items: cartItems },
+                {
+                    items: cartItems,
+                    shipping_details: shippingData
+                },
                 config
             );
 
@@ -481,109 +537,174 @@ export default function CheckoutPage() {
                         padding: '28px',
                         minHeight: '400px',
                     }}>
-                        {/* STEP 1: Resumen del pedido */}
+                        {/* STEP 1: Resumen del pedido y Envío */}
                         {step === 1 && (
-                            <>
-                                <h2 style={{
-                                    fontFamily: "'Space Grotesk', sans-serif",
-                                    fontSize: '18px',
-                                    fontWeight: 700,
-                                    color: '#1D1D1F',
-                                    margin: '0 0 20px',
-                                }}>Resumen del pedido</h2>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                                {/* Productos */}
+                                <div>
+                                    <h2 style={{
+                                        fontFamily: "'Space Grotesk', sans-serif",
+                                        fontSize: '18px',
+                                        fontWeight: 700,
+                                        color: '#1D1D1F',
+                                        margin: '0 0 16px',
+                                    }}>Resumen del pedido</h2>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {items.map((item) => {
-                                        const lineTotal = item.product.price * item.quantity;
-                                        return (
-                                            <div key={item.product.id} style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '14px',
-                                                padding: '14px',
-                                                borderRadius: '14px',
-                                                background: 'rgba(0,0,0,0.02)',
-                                            }}>
-                                                <div style={{
-                                                    width: '56px', height: '56px',
-                                                    borderRadius: '10px',
-                                                    background: '#F5F5F7',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    overflow: 'hidden',
-                                                    flexShrink: 0,
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {items.map((item) => {
+                                            const lineTotal = item.product.price * item.quantity;
+                                            return (
+                                                <div key={item.product.id} style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '12px',
+                                                    padding: '12px',
+                                                    borderRadius: '12px',
+                                                    background: 'rgba(0,0,0,0.02)',
                                                 }}>
-                                                    {item.product.image_url ? (
-                                                        <img
-                                                            src={`http://localhost:3001${item.product.image_url}`}
-                                                            alt={item.product.model}
-                                                            style={{ width: '100%', height: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }}
-                                                        />
-                                                    ) : (
-                                                        <ShoppingBag size={20} color="#AEAEB2" />
-                                                    )}
-                                                </div>
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <p style={{
+                                                    <div style={{
+                                                        width: '48px', height: '48px',
+                                                        borderRadius: '8px',
+                                                        background: '#F5F5F7',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        overflow: 'hidden',
+                                                        flexShrink: 0,
+                                                    }}>
+                                                        {item.product.image_url ? (
+                                                            <img
+                                                                src={`http://localhost:3001${item.product.image_url}`}
+                                                                alt={item.product.model}
+                                                                style={{ width: '100%', height: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }}
+                                                            />
+                                                        ) : (
+                                                            <ShoppingBag size={18} color="#AEAEB2" />
+                                                        )}
+                                                    </div>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <p style={{
+                                                            fontFamily: "'Space Grotesk', sans-serif",
+                                                            fontSize: '13px',
+                                                            fontWeight: 600,
+                                                            color: '#1D1D1F',
+                                                            margin: 0,
+                                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                        }}>{item.product.model || item.product.name}</p>
+                                                        <p style={{ fontSize: '11px', color: '#86868B', margin: '1px 0 0' }}>
+                                                            Cant: {item.quantity}
+                                                        </p>
+                                                    </div>
+                                                    <span style={{
                                                         fontFamily: "'Space Grotesk', sans-serif",
-                                                        fontSize: '14px',
-                                                        fontWeight: 600,
+                                                        fontSize: '13px',
+                                                        fontWeight: 700,
                                                         color: '#1D1D1F',
-                                                        margin: 0,
-                                                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                                    }}>{item.product.model || item.product.name}</p>
-                                                    <p style={{ fontSize: '12px', color: '#86868B', margin: '2px 0 0' }}>
-                                                        {item.product.brand} · Cant: {item.quantity}
-                                                    </p>
+                                                    }}>
+                                                        ${lineTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                    </span>
                                                 </div>
-                                                <span style={{
-                                                    fontFamily: "'Space Grotesk', sans-serif",
-                                                    fontSize: '14px',
-                                                    fontWeight: 700,
-                                                    color: '#1D1D1F',
-                                                    whiteSpace: 'nowrap',
-                                                }}>
-                                                    ${lineTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
 
-                                <div style={{ marginTop: '24px' }}>
-                                    <button
-                                        onClick={handleCreateOrder}
-                                        disabled={isSubmitting}
-                                        style={{
-                                            width: '100%', height: '48px',
-                                            border: 'none', borderRadius: '12px',
-                                            background: isSubmitting ? '#AEAEB2' : '#1D1D1F',
-                                            color: 'white',
-                                            fontFamily: "'Space Grotesk', sans-serif",
-                                            fontSize: '15px', fontWeight: 600,
-                                            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                                            transition: 'all 0.25s',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            gap: '8px',
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            if (!isSubmitting) {
-                                                e.currentTarget.style.background = '#FF5722';
-                                                e.currentTarget.style.transform = 'translateY(-1px)';
-                                                e.currentTarget.style.boxShadow = '0 6px 24px rgba(255,87,34,0.3)';
-                                            }
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            if (!isSubmitting) {
-                                                e.currentTarget.style.background = '#1D1D1F';
-                                                e.currentTarget.style.transform = 'translateY(0)';
-                                                e.currentTarget.style.boxShadow = 'none';
-                                            }
-                                        }}
-                                    >
-                                        {isSubmitting ? 'Iniciando pedido...' : 'Continuar al pago'}
-                                    </button>
+                                {/* Datos de Envío */}
+                                <div>
+                                    <h2 style={{
+                                        fontFamily: "'Space Grotesk', sans-serif",
+                                        fontSize: '18px',
+                                        fontWeight: 700,
+                                        color: '#1D1D1F',
+                                        margin: '0 0 16px',
+                                    }}>Datos de Envío</h2>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div style={{ gridColumn: 'span 2' }}>
+                                            <label style={{ fontSize: '11px', color: '#86868B', fontWeight: 600, marginBottom: '4px', display: 'block' }}>DIRECCIÓN Y NÚMERO</label>
+                                            <input
+                                                type="text"
+                                                value={shippingData.address_line}
+                                                onChange={(e) => setShippingData({ ...shippingData, address_line: e.target.value })}
+                                                placeholder="Ej: Av. Rivadavia 1234, 4° B"
+                                                style={{ width: '100%', height: '44px', padding: '0 12px', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', background: 'rgba(0,0,0,0.02)', outline: 'none', fontSize: '14px' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '11px', color: '#86868B', fontWeight: 600, marginBottom: '4px', display: 'block' }}>CIUDAD</label>
+                                            <input
+                                                type="text"
+                                                value={shippingData.city}
+                                                onChange={(e) => setShippingData({ ...shippingData, city: e.target.value })}
+                                                placeholder="Ej: CABA"
+                                                style={{ width: '100%', height: '44px', padding: '0 12px', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', background: 'rgba(0,0,0,0.02)', outline: 'none', fontSize: '14px' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '11px', color: '#86868B', fontWeight: 600, marginBottom: '4px', display: 'block' }}>PROVINCIA</label>
+                                            <input
+                                                type="text"
+                                                value={shippingData.state}
+                                                onChange={(e) => setShippingData({ ...shippingData, state: e.target.value })}
+                                                placeholder="Ej: Buenos Aires"
+                                                style={{ width: '100%', height: '44px', padding: '0 12px', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', background: 'rgba(0,0,0,0.02)', outline: 'none', fontSize: '14px' }}
+                                            />
+                                        </div>
+                                        <div style={{ gridColumn: 'span 2' }}>
+                                            <label style={{ fontSize: '11px', color: '#86868B', fontWeight: 600, marginBottom: '4px', display: 'block' }}>CÓDIGO POSTAL (PARA CALCULAR ENVÍO)</label>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <input
+                                                    type="text"
+                                                    value={shippingData.postal_code}
+                                                    onChange={(e) => setShippingData({ ...shippingData, postal_code: e.target.value })}
+                                                    placeholder="Ej: 1425"
+                                                    style={{ flex: 1, height: '44px', padding: '0 12px', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', background: 'rgba(0,0,0,0.1)', outline: 'none', fontSize: '16px', fontWeight: 700, fontFamily: 'Space Grotesk, sans-serif' }}
+                                                />
+                                                {shippingCost > 0 && (
+                                                    <div style={{
+                                                        padding: '0 16px', borderRadius: '10px', background: '#FF5722', color: 'white',
+                                                        display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600
+                                                    }}>
+                                                        Envío: ${shippingCost.toLocaleString('es-AR')}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </>
+
+                                <button
+                                    onClick={handleCreateOrder}
+                                    disabled={isSubmitting || !shippingData.postal_code || !shippingData.address_line}
+                                    style={{
+                                        width: '100%', height: '52px',
+                                        border: 'none', borderRadius: '12px',
+                                        background: (isSubmitting || !shippingData.postal_code || !shippingData.address_line) ? '#AEAEB2' : '#1D1D1F',
+                                        color: 'white',
+                                        fontFamily: "'Space Grotesk', sans-serif",
+                                        fontSize: '15px', fontWeight: 600,
+                                        cursor: (isSubmitting || !shippingData.postal_code || !shippingData.address_line) ? 'not-allowed' : 'pointer',
+                                        transition: 'all 0.25s',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        gap: '8px',
+                                        marginTop: '12px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!isSubmitting && shippingData.postal_code && shippingData.address_line) {
+                                            e.currentTarget.style.background = '#FF5722';
+                                            e.currentTarget.style.transform = 'translateY(-1px)';
+                                            e.currentTarget.style.boxShadow = '0 6px 24px rgba(255,87,34,0.3)';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!isSubmitting) {
+                                            e.currentTarget.style.background = (isSubmitting || !shippingData.postal_code || !shippingData.address_line) ? '#AEAEB2' : '#1D1D1F';
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = 'none';
+                                        }
+                                    }}
+                                >
+                                    {isSubmitting ? 'Iniciando pedido...' : 'Continuar al pago'}
+                                </button>
+                            </div>
                         )}
 
                         {/* STEP 2: Datos de transferencia */}
@@ -923,6 +1044,10 @@ export default function CheckoutPage() {
                     </div>
                 </div>
             </main>
+            <ReservationExpiredModal
+                isOpen={isExpiredModalOpen}
+                onConfirm={handleConfirmExpiration}
+            />
             <Footer />
         </div>
     );
